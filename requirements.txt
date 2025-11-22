@@ -32,11 +32,10 @@ loguru>=0.7.0
 # DÉPENDANCES OPTIONNELLES (FONCTIONNALITÉS ADDITIONNELLES)
 # ============================================================================
 
-# Export de données (Excel, Word, PDF)
-# Décommenter si vous implémentez les fonctionnalités d'export
-# openpyxl>=3.1.0
-# python-docx>=1.1.0
-# reportlab>=4.0.0
+# Export de donnees (Excel, Word, PDF)
+openpyxl>=3.1.0
+python-docx>=1.1.0
+reportlab>=4.0.0
 
 # Extraction de texte des documents PDF
 # Décommenter si vous gérez l'upload et l'indexation de PDF
@@ -46,11 +45,11 @@ loguru>=0.7.0
 # DÉPENDANCES DE DÉVELOPPEMENT (OPTIONNELLES)
 # ============================================================================
 
-# Tests unitaires et d'intégration
-# pytest>=7.4.0
-# pytest-asyncio>=0.21.0
-# httpx>=0.25.0
-# pytest-cov>=4.1.0
+# Tests unitaires et d'integration
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+httpx>=0.25.0
+pytest-cov>=4.1.0
 
 # Formatage et qualité de code
 # black>=23.11.0

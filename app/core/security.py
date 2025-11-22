@@ -5,12 +5,9 @@ Fonctions de sécurité : JWT, hashing de mots de passe
 from datetime import datetime, timedelta
 from typing import Any, Optional, Union
 from jose import jwt, JWTError
-from passlib.context import CryptContext
+import bcrypt
 
 from app.core.config import settings
-
-# Context pour le hashing de mots de passe
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def create_access_token(
@@ -66,7 +63,7 @@ def verify_token(token: str) -> Optional[str]:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
-    Vérifie un mot de passe contre son hash
+    Verifie un mot de passe contre son hash
 
     Args:
         plain_password: Mot de passe en clair
@@ -75,7 +72,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         True si le mot de passe correspond, False sinon
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(
+        plain_password.encode('utf-8'),
+        hashed_password.encode('utf-8') if isinstance(hashed_password, str) else hashed_password
+    )
 
 
 def get_password_hash(password: str) -> str:
@@ -88,4 +88,6 @@ def get_password_hash(password: str) -> str:
     Returns:
         Hash du mot de passe
     """
-    return pwd_context.hash(password)
+    # Truncate password to 72 bytes for bcrypt limit
+    password_bytes = password.encode('utf-8')[:72]
+    return bcrypt.hashpw(password_bytes, bcrypt.gensalt()).decode('utf-8')

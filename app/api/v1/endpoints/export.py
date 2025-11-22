@@ -10,95 +10,107 @@ from typing import Dict, Any
 
 from app.database import get_db
 from app.services.revenu_service import RevenuService
+from app.services.export_service import ExportService
 from app.api.deps import get_current_active_user
 from app.models.utilisateurs import Utilisateur
 
 router = APIRouter()
 
 
-def create_excel_response(data: Dict[str, Any]) -> StreamingResponse:
+def create_excel_response(data: Dict[str, Any], filename: str = "tableau_revenus.xlsx") -> StreamingResponse:
     """
-    Crée un fichier Excel à partir des données du tableau
+    Cree un fichier Excel a partir des donnees du tableau
 
-    Note: Nécessite openpyxl (pip install openpyxl)
-    Pour l'instant, retourne un placeholder
+    Args:
+        data: Dictionnaire contenant les donnees du tableau
+        filename: Nom du fichier a telecharger
+
+    Returns:
+        StreamingResponse avec le fichier Excel
+
+    Raises:
+        HTTPException: Si openpyxl n'est pas installe ou en cas d'erreur
     """
     try:
-        # TODO: Implémenter avec openpyxl
-        # from openpyxl import Workbook
-        # wb = Workbook()
-        # ws = wb.active
-        # ... remplir le fichier
-
-        # Placeholder
-        output = BytesIO()
-        output.write(b"Excel export - To be implemented with openpyxl")
-        output.seek(0)
+        output = ExportService.generate_excel(data)
 
         return StreamingResponse(
             output,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={
-                "Content-Disposition": f"attachment; filename=tableau_revenus.xlsx"
+                "Content-Disposition": f"attachment; filename={filename}"
             }
+        )
+    except ImportError as e:
+        raise HTTPException(
+            status_code=501,
+            detail="Les bibliotheques d'export Excel ne sont pas installees. Installez-les avec: pip install openpyxl"
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de l'export Excel: {str(e)}")
 
 
-def create_word_response(data: Dict[str, Any]) -> StreamingResponse:
+def create_word_response(data: Dict[str, Any], filename: str = "tableau_revenus.docx") -> StreamingResponse:
     """
-    Crée un fichier Word à partir des données du tableau
+    Cree un fichier Word a partir des donnees du tableau
 
-    Note: Nécessite python-docx (pip install python-docx)
-    Pour l'instant, retourne un placeholder
+    Args:
+        data: Dictionnaire contenant les donnees du tableau
+        filename: Nom du fichier a telecharger
+
+    Returns:
+        StreamingResponse avec le fichier Word
+
+    Raises:
+        HTTPException: Si python-docx n'est pas installe ou en cas d'erreur
     """
     try:
-        # TODO: Implémenter avec python-docx
-        # from docx import Document
-        # doc = Document()
-        # ... remplir le document
-
-        # Placeholder
-        output = BytesIO()
-        output.write(b"Word export - To be implemented with python-docx")
-        output.seek(0)
+        output = ExportService.generate_word(data)
 
         return StreamingResponse(
             output,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             headers={
-                "Content-Disposition": f"attachment; filename=tableau_revenus.docx"
+                "Content-Disposition": f"attachment; filename={filename}"
             }
+        )
+    except ImportError as e:
+        raise HTTPException(
+            status_code=501,
+            detail="Les bibliotheques d'export Word ne sont pas installees. Installez-les avec: pip install python-docx"
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de l'export Word: {str(e)}")
 
 
-def create_pdf_response(data: Dict[str, Any]) -> StreamingResponse:
+def create_pdf_response(data: Dict[str, Any], filename: str = "tableau_revenus.pdf") -> StreamingResponse:
     """
-    Crée un fichier PDF à partir des données du tableau
+    Cree un fichier PDF a partir des donnees du tableau
 
-    Note: Nécessite reportlab (pip install reportlab)
-    Pour l'instant, retourne un placeholder
+    Args:
+        data: Dictionnaire contenant les donnees du tableau
+        filename: Nom du fichier a telecharger
+
+    Returns:
+        StreamingResponse avec le fichier PDF
+
+    Raises:
+        HTTPException: Si reportlab n'est pas installe ou en cas d'erreur
     """
     try:
-        # TODO: Implémenter avec reportlab
-        # from reportlab.lib.pagesizes import A4, landscape
-        # from reportlab.pdfgen import canvas
-        # ... générer le PDF
-
-        # Placeholder
-        output = BytesIO()
-        output.write(b"PDF export - To be implemented with reportlab")
-        output.seek(0)
+        output = ExportService.generate_pdf(data)
 
         return StreamingResponse(
             output,
             media_type="application/pdf",
             headers={
-                "Content-Disposition": f"attachment; filename=tableau_revenus.pdf"
+                "Content-Disposition": f"attachment; filename={filename}"
             }
+        )
+    except ImportError as e:
+        raise HTTPException(
+            status_code=501,
+            detail="Les bibliotheques d'export PDF ne sont pas installees. Installez-les avec: pip install reportlab"
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de l'export PDF: {str(e)}")
@@ -119,20 +131,24 @@ def export_excel(
     Exporte le tableau de compte administratif en Excel
 
     - **commune_code**: Code de la commune
-    - **exercice_annee**: Année de l'exercice fiscal
+    - **exercice_annee**: Annee de l'exercice fiscal
 
-    Retourne un fichier Excel téléchargeable
+    Retourne un fichier Excel telechargeable
     """
     try:
-        # Récupération des données
+        # Recuperation des donnees
         tableau = RevenuService.get_tableau_compte_administratif(
             db, commune_code, exercice_annee
         )
 
-        # TODO: Logger le téléchargement
+        # Generer un nom de fichier descriptif
+        commune_nom = tableau["commune"].nom.replace(" ", "_")
+        filename = f"compte_administratif_{commune_nom}_{exercice_annee}.xlsx"
+
+        # TODO: Logger le telechargement
         # ExportService.log_telechargement(...)
 
-        return create_excel_response(tableau)
+        return create_excel_response(tableau, filename)
 
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -155,17 +171,21 @@ def export_word(
     Exporte le tableau de compte administratif en Word
 
     - **commune_code**: Code de la commune
-    - **exercice_annee**: Année de l'exercice fiscal
+    - **exercice_annee**: Annee de l'exercice fiscal
 
-    Retourne un fichier Word téléchargeable
+    Retourne un fichier Word telechargeable
     """
     try:
-        # Récupération des données
+        # Recuperation des donnees
         tableau = RevenuService.get_tableau_compte_administratif(
             db, commune_code, exercice_annee
         )
 
-        return create_word_response(tableau)
+        # Generer un nom de fichier descriptif
+        commune_nom = tableau["commune"].nom.replace(" ", "_")
+        filename = f"compte_administratif_{commune_nom}_{exercice_annee}.docx"
+
+        return create_word_response(tableau, filename)
 
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -188,17 +208,21 @@ def export_pdf(
     Exporte le tableau de compte administratif en PDF
 
     - **commune_code**: Code de la commune
-    - **exercice_annee**: Année de l'exercice fiscal
+    - **exercice_annee**: Annee de l'exercice fiscal
 
-    Retourne un fichier PDF téléchargeable
+    Retourne un fichier PDF telechargeable
     """
     try:
-        # Récupération des données
+        # Recuperation des donnees
         tableau = RevenuService.get_tableau_compte_administratif(
             db, commune_code, exercice_annee
         )
 
-        return create_pdf_response(tableau)
+        # Generer un nom de fichier descriptif
+        commune_nom = tableau["commune"].nom.replace(" ", "_")
+        filename = f"compte_administratif_{commune_nom}_{exercice_annee}.pdf"
+
+        return create_pdf_response(tableau, filename)
 
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
