@@ -4,7 +4,7 @@ Aggregation de tous les routers API v1
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import geographie, revenus, utilisateurs, export
+from app.api.v1.endpoints import geographie, revenus, utilisateurs, export, roles
 
 api_router = APIRouter()
 
@@ -12,4 +12,5 @@ api_router = APIRouter()
 api_router.include_router(geographie.router, prefix="/geo", tags=["Géographie"])
 api_router.include_router(revenus.router, prefix="/revenus", tags=["Revenus"])
 api_router.include_router(utilisateurs.router, prefix="/auth", tags=["Authentification"])
+api_router.include_router(roles.router, prefix="/roles", tags=["Rôles"])
 api_router.include_router(export.router, prefix="/export", tags=["Export"])

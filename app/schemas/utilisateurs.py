@@ -15,7 +15,7 @@ class RoleBase(BaseModel):
     code: str = Field(..., max_length=50)
     nom: str = Field(..., max_length=255)
     description: Optional[str] = None
-    permissions: Optional[Dict[str, Any]] = None
+    permissions: Optional[list] = None  # Liste de permissions: ["all"], ["read", "create"], etc.
     actif: bool = True
 
 
@@ -23,9 +23,21 @@ class RoleCreate(RoleBase):
     pass
 
 
+class RoleUpdate(BaseModel):
+    code: Optional[str] = Field(None, max_length=50)
+    nom: Optional[str] = Field(None, max_length=255)
+    description: Optional[str] = None
+    permissions: Optional[Dict[str, Any]] = None
+    actif: Optional[bool] = None
+
+
 class Role(RoleBase, TimestampSchema):
     id: UUID
     model_config = {"from_attributes": True}
+
+
+# Alias pour compatibilité avec le frontend
+RoleResponse = Role
 
 
 # Utilisateurs
