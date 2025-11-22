@@ -1,0 +1,50 @@
+# Configuration Alembic pour les migrations de base de données
+# À copier en alembic.ini et adapter selon votre configuration
+
+[alembic]
+# Path vers le répertoire de scripts
+script_location = migrations
+
+# Template utilisé pour générer les fichiers de migration
+file_template = %%(year)d%%(month).2d%%(day).2d_%%(hour).2d%%(minute).2d_%%(rev)s_%%(slug)s
+
+# sys.path path, sera ajouté au début de sys.path si présent
+prepend_sys_path = .
+
+# Version de SQLAlchemy
+sqlalchemy.url = postgresql://user:password@localhost:5432/revenus_miniers_db
+
+# Optionnel: logging configuration
+[loggers]
+keys = root,sqlalchemy,alembic
+
+[handlers]
+keys = console
+
+[formatters]
+keys = generic
+
+[logger_root]
+level = WARN
+handlers = console
+qualname =
+
+[logger_sqlalchemy]
+level = WARN
+handlers =
+qualname = sqlalchemy.engine
+
+[logger_alembic]
+level = INFO
+handlers =
+qualname = alembic
+
+[handler_console]
+class = StreamHandler
+args = (sys.stderr,)
+level = NOTSET
+formatter = generic
+
+[formatter_generic]
+format = %(levelname)-5.5s [%(name)s] %(message)s
+datefmt = %H:%M:%S

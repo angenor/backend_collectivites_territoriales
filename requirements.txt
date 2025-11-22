@@ -1,0 +1,58 @@
+# ============================================================================
+# DÉPENDANCES ESSENTIELLES (REQUISES POUR FASTAPI)
+# ============================================================================
+
+# FastAPI et serveur ASGI
+fastapi>=0.104.0,<0.115.0
+uvicorn[standard]>=0.24.0,<0.30.0
+python-multipart>=0.0.6
+
+# Base de données PostgreSQL
+sqlalchemy>=2.0.23,<2.1.0
+psycopg2-binary>=2.9.9,<3.0.0
+alembic>=1.12.0,<2.0.0
+
+# Validation et configuration
+pydantic>=2.5.0,<3.0.0
+pydantic-settings>=2.1.0,<3.0.0
+email-validator>=2.1.0
+
+# Sécurité et authentification
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-dotenv>=1.0.0
+
+# Logging
+loguru>=0.7.0
+
+# Note: python-dateutil et pytz sont déjà installés dans votre environnement
+# Pas besoin de les réinstaller
+
+# ============================================================================
+# DÉPENDANCES OPTIONNELLES (FONCTIONNALITÉS ADDITIONNELLES)
+# ============================================================================
+
+# Export de données (Excel, Word, PDF)
+# Décommenter si vous implémentez les fonctionnalités d'export
+# openpyxl>=3.1.0
+# python-docx>=1.1.0
+# reportlab>=4.0.0
+
+# Extraction de texte des documents PDF
+# Décommenter si vous gérez l'upload et l'indexation de PDF
+# pypdf2>=3.0.0
+
+# ============================================================================
+# DÉPENDANCES DE DÉVELOPPEMENT (OPTIONNELLES)
+# ============================================================================
+
+# Tests unitaires et d'intégration
+# pytest>=7.4.0
+# pytest-asyncio>=0.21.0
+# httpx>=0.25.0
+# pytest-cov>=4.1.0
+
+# Formatage et qualité de code
+# black>=23.11.0
+# flake8>=6.1.0
+# mypy>=1.7.0
