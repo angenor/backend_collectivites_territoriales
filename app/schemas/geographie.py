@@ -53,6 +53,13 @@ class DepartementCreate(DepartementBase):
     pass
 
 
+class DepartementUpdate(BaseModel):
+    nom: Optional[str] = Field(None, max_length=255)
+    region_id: Optional[UUID] = None
+    description: Optional[str] = None
+    actif: Optional[bool] = None
+
+
 class Departement(DepartementBase, TimestampSchema):
     id: UUID
 

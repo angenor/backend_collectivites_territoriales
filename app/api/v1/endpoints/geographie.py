@@ -5,10 +5,17 @@ Endpoints pour la géographie
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from uuid import UUID
 
 from app.database import get_db
-from app.schemas.geographie import Region, Departement, Commune, CommuneDetail
+from app.schemas.geographie import (
+    Region,
+    Departement, DepartementCreate, DepartementUpdate, DepartementDetail,
+    Commune, CommuneDetail
+)
 from app.services.commune_service import CommuneService
+from app.api.deps import get_current_active_user
+from app.models.geographie import Departement as DepartementModel
 
 router = APIRouter()
 
@@ -30,6 +37,148 @@ def get_departements_by_region(region_code: str, db: Session = Depends(get_db)):
     if not departements:
         raise HTTPException(status_code=404, detail="Région non trouvée ou sans départements")
     return departements
+
+
+# ============================================================================
+# CRUD DÉPARTEMENTS
+# ============================================================================
+
+@router.get("/departements", response_model=List[DepartementDetail], summary="Liste des départements")
+def get_all_departements(
+    skip: int = 0,
+    limit: int = 100,
+    actif_only: bool = True,
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère la liste de tous les départements avec leur région.
+
+    - **skip**: Nombre d'éléments à ignorer (pagination)
+    - **limit**: Nombre maximum d'éléments à retourner
+    - **actif_only**: Si True, retourne uniquement les départements actifs
+    """
+    query = db.query(DepartementModel)
+
+    if actif_only:
+        query = query.filter(DepartementModel.actif == True)
+
+    departements = query.order_by(DepartementModel.nom).offset(skip).limit(limit).all()
+    return departements
+
+
+@router.get("/departements/{departement_id}", response_model=DepartementDetail, summary="Détails d'un département")
+def get_departement(
+    departement_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère un département spécifique par son ID avec sa région.
+
+    - **departement_id**: UUID du département
+    """
+    departement = db.query(DepartementModel).filter(DepartementModel.id == departement_id).first()
+
+    if not departement:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Département avec l'ID {departement_id} introuvable"
+        )
+
+    return departement
+
+
+@router.post("/departements", response_model=DepartementDetail, status_code=201, summary="Créer un département")
+def create_departement(
+    departement_data: DepartementCreate,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """
+    Crée un nouveau département (nécessite d'être authentifié).
+
+    - **departement_data**: Données du département à créer
+    """
+    # Vérifier que le code n'existe pas déjà
+    existing = db.query(DepartementModel).filter(DepartementModel.code == departement_data.code.upper()).first()
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Un département avec le code '{departement_data.code}' existe déjà"
+        )
+
+    # Créer le nouveau département
+    db_departement = DepartementModel(
+        code=departement_data.code.upper(),
+        nom=departement_data.nom,
+        region_id=departement_data.region_id,
+        description=departement_data.description,
+        actif=departement_data.actif
+    )
+
+    db.add(db_departement)
+    db.commit()
+    db.refresh(db_departement)
+
+    return db_departement
+
+
+@router.put("/departements/{departement_id}", response_model=DepartementDetail, summary="Modifier un département")
+def update_departement(
+    departement_id: UUID,
+    departement_data: DepartementUpdate,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """
+    Met à jour un département existant (nécessite d'être authentifié).
+
+    - **departement_id**: UUID du département à modifier
+    - **departement_data**: Nouvelles données du département
+    """
+    departement = db.query(DepartementModel).filter(DepartementModel.id == departement_id).first()
+
+    if not departement:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Département avec l'ID {departement_id} introuvable"
+        )
+
+    # Mettre à jour les champs fournis
+    update_data = departement_data.model_dump(exclude_unset=True)
+
+    for field, value in update_data.items():
+        setattr(departement, field, value)
+
+    db.commit()
+    db.refresh(departement)
+
+    return departement
+
+
+@router.delete("/departements/{departement_id}", summary="Supprimer un département")
+def delete_departement(
+    departement_id: UUID,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """
+    Désactive un département (soft delete - nécessite d'être authentifié).
+
+    - **departement_id**: UUID du département à désactiver
+    """
+    departement = db.query(DepartementModel).filter(DepartementModel.id == departement_id).first()
+
+    if not departement:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Département avec l'ID {departement_id} introuvable"
+        )
+
+    # Soft delete : désactiver le département au lieu de le supprimer
+    departement.actif = False
+    db.commit()
+
+    return {"message": f"Département '{departement.nom}' désactivé avec succès"}
 
 
 @router.get(
