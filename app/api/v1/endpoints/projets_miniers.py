@@ -274,3 +274,153 @@ def delete_societe_miniere(
     db.commit()
 
     return {"message": f"Société '{societe.nom}' désactivée avec succès"}
+
+
+# ============================================================================
+# PROJETS MINIERS
+# ============================================================================
+
+@router.get("/projets", response_model=List[ProjetMinierDetail], summary="Liste des projets miniers")
+def get_projets_miniers(
+    skip: int = 0,
+    limit: int = 100,
+    actif_only: bool = True,
+    commune_id: UUID = Query(None),
+    societe_id: UUID = Query(None),
+    type_minerai_id: UUID = Query(None),
+    statut: str = Query(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère la liste de tous les projets miniers.
+
+    - **skip**: Nombre d'éléments à ignorer (pagination)
+    - **limit**: Nombre maximum d'éléments à retourner
+    - **actif_only**: Si True, retourne uniquement les projets actifs
+    - **commune_id**: Filtrer par commune
+    - **societe_id**: Filtrer par société minière
+    - **type_minerai_id**: Filtrer par type de minerai
+    - **statut**: Filtrer par statut (actif, suspendu, terminé)
+    """
+    query = db.query(ProjetMinierModel)
+
+    if actif_only:
+        query = query.filter(ProjetMinierModel.actif == True)
+
+    if commune_id:
+        query = query.filter(ProjetMinierModel.commune_id == commune_id)
+
+    if societe_id:
+        query = query.filter(ProjetMinierModel.societe_miniere_id == societe_id)
+
+    if type_minerai_id:
+        query = query.filter(ProjetMinierModel.type_minerai_id == type_minerai_id)
+
+    if statut:
+        query = query.filter(ProjetMinierModel.statut == statut)
+
+    projets = query.order_by(ProjetMinierModel.nom).offset(skip).limit(limit).all()
+    return projets
+
+
+@router.get("/projets/{projet_id}", response_model=ProjetMinierDetail, summary="Détails d'un projet minier")
+def get_projet_minier(
+    projet_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """Récupère un projet minier spécifique par son ID."""
+    projet = db.query(ProjetMinierModel).filter(ProjetMinierModel.id == projet_id).first()
+
+    if not projet:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Projet minier avec l'ID {projet_id} introuvable"
+        )
+
+    return projet
+
+
+@router.post("/projets", response_model=ProjetMinierDetail, status_code=201, summary="Créer un projet minier")
+def create_projet_minier(
+    data: ProjetMinierCreate,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Crée un nouveau projet minier (nécessite d'être authentifié)."""
+    # Vérifier que le code n'existe pas déjà
+    existing = db.query(ProjetMinierModel).filter(ProjetMinierModel.code == data.code.upper()).first()
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Un projet avec le code '{data.code}' existe déjà"
+        )
+
+    # Créer le nouveau projet
+    db_projet = ProjetMinierModel(
+        code=data.code.upper(),
+        nom=data.nom,
+        societe_miniere_id=data.societe_miniere_id,
+        type_minerai_id=data.type_minerai_id,
+        commune_id=data.commune_id,
+        date_debut=data.date_debut,
+        date_fin=data.date_fin,
+        statut=data.statut,
+        description=data.description,
+        actif=data.actif
+    )
+
+    db.add(db_projet)
+    db.commit()
+    db.refresh(db_projet)
+
+    return db_projet
+
+
+@router.put("/projets/{projet_id}", response_model=ProjetMinierDetail, summary="Modifier un projet minier")
+def update_projet_minier(
+    projet_id: UUID,
+    data: ProjetMinierUpdate,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Met à jour un projet minier existant (nécessite d'être authentifié)."""
+    projet = db.query(ProjetMinierModel).filter(ProjetMinierModel.id == projet_id).first()
+
+    if not projet:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Projet minier avec l'ID {projet_id} introuvable"
+        )
+
+    # Mettre à jour les champs fournis
+    update_data = data.model_dump(exclude_unset=True)
+
+    for field, value in update_data.items():
+        setattr(projet, field, value)
+
+    db.commit()
+    db.refresh(projet)
+
+    return projet
+
+
+@router.delete("/projets/{projet_id}", summary="Supprimer un projet minier")
+def delete_projet_minier(
+    projet_id: UUID,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Désactive un projet minier (soft delete - nécessite d'être authentifié)."""
+    projet = db.query(ProjetMinierModel).filter(ProjetMinierModel.id == projet_id).first()
+
+    if not projet:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Projet minier avec l'ID {projet_id} introuvable"
+        )
+
+    # Soft delete : désactiver au lieu de supprimer
+    projet.actif = False
+    db.commit()
+
+    return {"message": f"Projet '{projet.nom}' désactivé avec succès"}
