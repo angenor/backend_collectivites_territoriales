@@ -70,6 +70,20 @@ class RubriqueCreate(RubriqueBase):
     pass
 
 
+class RubriqueUpdate(BaseModel):
+    nom: Optional[str] = Field(None, max_length=255)
+    categorie_id: Optional[UUID] = None
+    parent_id: Optional[UUID] = None
+    niveau: Optional[int] = Field(None, ge=1)
+    ordre: Optional[int] = None
+    type: Optional[str] = Field(None, max_length=50)
+    formule: Optional[str] = None
+    est_calculee: Optional[bool] = None
+    afficher_total: Optional[bool] = None
+    description: Optional[str] = None
+    actif: Optional[bool] = None
+
+
 class Rubrique(RubriqueBase, TimestampSchema):
     id: UUID
     model_config = {"from_attributes": True}

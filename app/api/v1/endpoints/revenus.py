@@ -92,3 +92,34 @@ def get_statistiques_commune(
         return RevenuService.get_statistiques_commune(db, commune_code, exercice_annee)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/search", response_model=List[Revenu], summary="Rechercher des revenus")
+def search_revenus(
+    commune_id: Optional[UUID] = Query(None),
+    periode_id: Optional[UUID] = Query(None),
+    projet_minier_id: Optional[UUID] = Query(None),
+    rubrique_id: Optional[UUID] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """Recherche de revenus avec filtres multiples"""
+    from app.models.revenus import Revenu as RevenuModel
+    from sqlalchemy.orm import joinedload
+
+    query = db.query(RevenuModel).options(
+        joinedload(RevenuModel.rubrique),
+        joinedload(RevenuModel.periode),
+        joinedload(RevenuModel.commune),
+        joinedload(RevenuModel.projet_minier)
+    )
+
+    if commune_id:
+        query = query.filter(RevenuModel.commune_id == commune_id)
+    if periode_id:
+        query = query.filter(RevenuModel.periode_id == periode_id)
+    if projet_minier_id:
+        query = query.filter(RevenuModel.projet_minier_id == projet_minier_id)
+    if rubrique_id:
+        query = query.filter(RevenuModel.rubrique_id == rubrique_id)
+
+    return query.all()
