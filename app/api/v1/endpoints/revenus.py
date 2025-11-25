@@ -8,7 +8,7 @@ from typing import List, Optional, Dict, Any
 from uuid import UUID
 
 from app.database import get_db
-from app.schemas.revenus import Revenu, RevenuCreate, RevenuUpdate
+from app.schemas.revenus import Revenu, RevenuCreate, RevenuUpdate, RevenuDetail
 from app.schemas.statistiques import StatistiquesCommune, TableauCompteAdministratif
 from app.services.revenu_service import RevenuService
 from app.api.deps import get_current_active_user
@@ -94,7 +94,7 @@ def get_statistiques_commune(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.get("/search", response_model=List[Revenu], summary="Rechercher des revenus")
+@router.get("/search", response_model=List[RevenuDetail], summary="Rechercher des revenus")
 def search_revenus(
     commune_id: Optional[UUID] = Query(None),
     periode_id: Optional[UUID] = Query(None),

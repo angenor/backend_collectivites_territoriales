@@ -108,10 +108,28 @@ class Revenu(Base, TimestampMixin):
     periode_id = Column(UUID(as_uuid=True), ForeignKey("periodes.id", ondelete="CASCADE"), nullable=False)
     projet_minier_id = Column(UUID(as_uuid=True), ForeignKey("projets_miniers.id", ondelete="SET NULL"))
 
-    montant = Column(Numeric(15, 2), nullable=False, default=0)
-    montant_prevu = Column(Numeric(15, 2))
+    # Colonnes de budget (communes à recettes et dépenses)
+    budget_primitif = Column(Numeric(15, 2), default=0)
+    budget_additionnel = Column(Numeric(15, 2), default=0)
+    modifications = Column(Numeric(15, 2), default=0)
+    previsions_definitives = Column(Numeric(15, 2), default=0)  # Calculé: BP + BA + MOD
+
+    # Colonnes spécifiques aux RECETTES (si rubrique.type='recette')
+    ordre_recette_admis = Column(Numeric(15, 2), default=0)  # OR ADMIS (2)
+    recouvrement = Column(Numeric(15, 2), default=0)
+    reste_a_recouvrer = Column(Numeric(15, 2), default=0)  # Calculé: OR ADMIS - RECOUVREMENT
+
+    # Colonnes spécifiques aux DEPENSES (si rubrique.type='depense')
+    engagement = Column(Numeric(15, 2), default=0)
+    mandat_admis = Column(Numeric(15, 2), default=0)  # MANDAT ADMIS (2)
+    paiement = Column(Numeric(15, 2), default=0)
+    reste_a_payer = Column(Numeric(15, 2), default=0)  # Calculé: MANDAT ADMIS - PAIEMENT
+
+    # Ancien modèle (backward compatibility)
+    montant = Column(Numeric(15, 2), nullable=False, default=0)  # Deprecated: use ordre_recette_admis or mandat_admis
+    montant_prevu = Column(Numeric(15, 2))  # Deprecated: use budget_primitif
     ecart = Column(Numeric(15, 2))
-    taux_realisation = Column(Numeric(5, 2))
+    taux_realisation = Column(Numeric(5, 2))  # TAUX D'EXECUTION: (2)/(1) * 100
 
     observations = Column(Text)
     documents = Column(JSONB)  # Références aux documents justificatifs

@@ -95,8 +95,29 @@ class RevenuBase(BaseModel):
     rubrique_id: UUID
     periode_id: UUID
     projet_minier_id: Optional[UUID] = None
-    montant: Decimal = Field(..., ge=0, decimal_places=2)
+
+    # Colonnes de budget (communes à recettes et dépenses)
+    budget_primitif: Decimal = Field(default=0, ge=0, decimal_places=2)
+    budget_additionnel: Decimal = Field(default=0, decimal_places=2)
+    modifications: Decimal = Field(default=0, decimal_places=2)
+    previsions_definitives: Decimal = Field(default=0, ge=0, decimal_places=2)
+
+    # Colonnes spécifiques aux RECETTES (si rubrique.type='recette')
+    ordre_recette_admis: Decimal = Field(default=0, ge=0, decimal_places=2)
+    recouvrement: Decimal = Field(default=0, ge=0, decimal_places=2)
+    reste_a_recouvrer: Decimal = Field(default=0, decimal_places=2)
+
+    # Colonnes spécifiques aux DEPENSES (si rubrique.type='depense')
+    engagement: Decimal = Field(default=0, ge=0, decimal_places=2)
+    mandat_admis: Decimal = Field(default=0, ge=0, decimal_places=2)
+    paiement: Decimal = Field(default=0, ge=0, decimal_places=2)
+    reste_a_payer: Decimal = Field(default=0, decimal_places=2)
+
+    # Ancien modèle (backward compatibility - deprecated)
+    montant: Decimal = Field(default=0, ge=0, decimal_places=2)
     montant_prevu: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
+
+    # Métadonnées
     observations: Optional[str] = None
     documents: Optional[Dict[str, Any]] = None
 
@@ -106,8 +127,28 @@ class RevenuCreate(RevenuBase):
 
 
 class RevenuUpdate(BaseModel):
+    # Colonnes de budget (communes à recettes et dépenses)
+    budget_primitif: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
+    budget_additionnel: Optional[Decimal] = Field(None, decimal_places=2)
+    modifications: Optional[Decimal] = Field(None, decimal_places=2)
+    previsions_definitives: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
+
+    # Colonnes spécifiques aux RECETTES
+    ordre_recette_admis: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
+    recouvrement: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
+    reste_a_recouvrer: Optional[Decimal] = Field(None, decimal_places=2)
+
+    # Colonnes spécifiques aux DEPENSES
+    engagement: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
+    mandat_admis: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
+    paiement: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
+    reste_a_payer: Optional[Decimal] = Field(None, decimal_places=2)
+
+    # Ancien modèle (backward compatibility - deprecated)
     montant: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
     montant_prevu: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
+
+    # Métadonnées
     observations: Optional[str] = None
     documents: Optional[Dict[str, Any]] = None
     updated_by: Optional[UUID] = None
@@ -124,6 +165,15 @@ class Revenu(RevenuBase, TimestampSchema):
     updated_by: Optional[UUID] = None
 
     model_config = {"from_attributes": True}
+
+
+# RevenuDetail with nested relationships
+class RevenuDetail(Revenu):
+    """Revenu avec relations complètes (pour les endpoints avec joinedload)"""
+    rubrique: Optional["Rubrique"] = None
+    periode: Optional["Periode"] = None
+    commune: Optional[Any] = None  # CommuneBase from geographie
+    projet_minier: Optional[Any] = None  # ProjetMinier from projets_miniers
 
 
 # Filtres
