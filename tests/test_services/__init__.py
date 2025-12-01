@@ -1,3 +1,0 @@
-"""
-Tests pour les services
-"""

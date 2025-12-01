@@ -1,1 +1,0 @@
-c'est bien mais tu as fas l'implémentation dans le mauvais dossier. Le dossier bank/ sert juste de zone  de documentation. Merci d'implémenter mon backend avec une bonne architecture 
