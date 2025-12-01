@@ -78,15 +78,7 @@ Core entities for the mining revenues platform:
 
 ## Database Setup
 
-```bash
-# Create database
-psql -U postgres -c "CREATE DATABASE revenus_miniers_db;"
-
-# Load schema and seed data (when scripts exist)
-psql -U postgres -d revenus_miniers_db -f scripts/schema.sql
-psql -U postgres -d revenus_miniers_db -f scripts/seed_data.sql
-psql -U postgres -d revenus_miniers_db -f scripts/seed_regions_madagascar.sql
-```
+SQL scripts for initial setup are in `bank/scripts/` - see [bank/scripts/README.md](bank/scripts/README.md) for details.
 
 ## Configuration
 
