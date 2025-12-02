@@ -1,10 +1,11 @@
-from typing import Union
+"""
+Entry point for uvicorn server.
+Imports the FastAPI app from the app module.
 
-from fastapi import FastAPI
+Usage:
+    uvicorn main:app --reload --host 0.0.0.0 --port 8000
+"""
 
-app = FastAPI()
+from app.main import app
 
-
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
+__all__ = ["app"]
