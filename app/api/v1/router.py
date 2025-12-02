@@ -5,11 +5,12 @@ Aggregates all endpoint routers for API version 1.
 
 from fastapi import APIRouter
 
+from app.api.v1.endpoints import auth
+
 api_router = APIRouter()
 
-# Endpoints will be added in subsequent phases:
 # Phase 4: Authentication
-# api_router.include_router(auth.router, prefix="/auth", tags=["Authentification"])
+api_router.include_router(auth.router)
 
 # Phase 5: Public API (Front Office)
 # api_router.include_router(geo.router, prefix="/geo", tags=["Géographie"])

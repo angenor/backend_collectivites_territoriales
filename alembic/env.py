@@ -14,8 +14,7 @@ from app.core.config import settings
 from app.database import Base
 
 # Import all models here for autogenerate to detect them
-# Will be populated in Phase 2 when models are created
-# from app.models import *  # noqa
+from app.models import *  # noqa: F401, F403
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

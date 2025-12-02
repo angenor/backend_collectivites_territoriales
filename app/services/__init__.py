@@ -1,2 +1,10 @@
-# Business logic services
-# Will be implemented in Phase 11
+"""
+Business logic services.
+"""
+
+from app.services.auth import AuthService, get_auth_service
+
+__all__ = [
+    "AuthService",
+    "get_auth_service",
+]
