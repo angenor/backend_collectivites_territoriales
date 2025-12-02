@@ -11,10 +11,14 @@ from app.api.v1.endpoints import (
     exercices,
     export,
     geo,
+    newsletter,
     pages,
     projets,
     revenus,
+    search,
+    statistiques,
     tableaux,
+    tracking,
 )
 from app.api.v1.endpoints.admin.router import admin_router
 
@@ -37,3 +41,13 @@ api_router.include_router(export.router)
 
 # Phase 7: Admin API (Back Office)
 api_router.include_router(admin_router)
+
+# Phase 8: Newsletter
+api_router.include_router(newsletter.router)
+
+# Phase 9: Statistics and Tracking
+api_router.include_router(statistiques.router)
+api_router.include_router(tracking.router)
+
+# Phase 10: Search
+api_router.include_router(search.router)

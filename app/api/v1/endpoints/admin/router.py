@@ -11,6 +11,8 @@ from app.api.v1.endpoints.admin.exercices import router as exercices_router
 from app.api.v1.endpoints.admin.import_data import router as import_router
 from app.api.v1.endpoints.admin.cms import router as cms_router
 from app.api.v1.endpoints.admin.upload import router as upload_router
+from app.api.v1.endpoints.admin.newsletter import router as newsletter_router
+from app.api.v1.endpoints.admin.statistiques import router as statistiques_router
 
 admin_router = APIRouter(prefix="/admin", tags=["Administration"])
 
@@ -21,3 +23,5 @@ admin_router.include_router(exercices_router)
 admin_router.include_router(import_router)
 admin_router.include_router(cms_router)
 admin_router.include_router(upload_router)
+admin_router.include_router(newsletter_router)
+admin_router.include_router(statistiques_router)
