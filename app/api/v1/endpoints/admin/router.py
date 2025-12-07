@@ -13,6 +13,8 @@ from app.api.v1.endpoints.admin.cms import router as cms_router
 from app.api.v1.endpoints.admin.upload import router as upload_router
 from app.api.v1.endpoints.admin.newsletter import router as newsletter_router
 from app.api.v1.endpoints.admin.statistiques import router as statistiques_router
+from app.api.v1.endpoints.admin.comptes_administratifs import router as comptes_administratifs_router
+from app.api.v1.endpoints.admin.colonnes import router as colonnes_router
 
 admin_router = APIRouter(prefix="/admin", tags=["Administration"])
 
@@ -25,3 +27,5 @@ admin_router.include_router(cms_router)
 admin_router.include_router(upload_router)
 admin_router.include_router(newsletter_router)
 admin_router.include_router(statistiques_router)
+admin_router.include_router(comptes_administratifs_router)
+admin_router.include_router(colonnes_router)
