@@ -51,12 +51,12 @@ async def dashboard_stats(
 
     # Content stats
     total_exercices = db.query(func.count(Exercice.id)).scalar()
-    exercices_publies = db.query(func.count(Exercice.id)).filter(Exercice.publie == True).scalar()
+    exercices_clotures = db.query(func.count(Exercice.id)).filter(Exercice.cloture == True).scalar()
     total_documents = db.query(func.count(Document.id)).scalar()
 
-    # Financial totals
-    total_recettes = db.query(func.sum(DonneesRecettes.realisation)).scalar() or 0
-    total_depenses = db.query(func.sum(DonneesDepenses.realisation)).scalar() or 0
+    # Financial totals (recouvrement pour recettes, mandat_admis pour dépenses)
+    total_recettes = db.query(func.sum(DonneesRecettes.recouvrement)).scalar() or 0
+    total_depenses = db.query(func.sum(DonneesDepenses.mandat_admis)).scalar() or 0
 
     # Visit stats
     visites_30j = db.query(func.sum(StatistiqueVisite.nb_visites)).filter(
@@ -83,7 +83,7 @@ async def dashboard_stats(
         },
         "contenu": {
             "exercices_total": total_exercices,
-            "exercices_publies": exercices_publies,
+            "exercices_clotures": exercices_clotures,
             "documents": total_documents,
         },
         "finances": {
@@ -100,6 +100,85 @@ async def dashboard_stats(
             "modifications_7_jours": recent_audit,
         },
     }
+
+
+@router.get(
+    "/revenus-par-annee",
+    response_model=list[dict],
+    summary="Revenus par année",
+    description="Retourne les revenus agrégés par année.",
+)
+async def revenus_par_annee(
+    annees: int = Query(3, ge=1, le=10, description="Nombre d'années"),
+    current_user: CurrentAdmin = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Get revenues aggregated by year.
+    """
+    current_year = date.today().year
+    years_range = range(current_year - annees + 1, current_year + 1)
+
+    results = []
+    previous_total = None
+
+    for year in years_range:
+        # Total recettes pour cette année
+        total_recettes = db.query(func.sum(DonneesRecettes.recouvrement)).join(
+            Exercice,
+            DonneesRecettes.exercice_id == Exercice.id
+        ).filter(
+            Exercice.annee == year
+        ).scalar() or 0
+
+        # Calcul de l'évolution
+        evolution = 0.0
+        if previous_total is not None and previous_total > 0:
+            evolution = ((float(total_recettes) - previous_total) / previous_total) * 100
+
+        results.append({
+            "annee": year,
+            "total": float(total_recettes),
+            "evolution": round(evolution, 2),
+        })
+
+        previous_total = float(total_recettes)
+
+    return results
+
+
+@router.get(
+    "/activite-recente",
+    response_model=list[dict],
+    summary="Activité récente",
+    description="Retourne les dernières actions du journal d'audit.",
+)
+async def activite_recente(
+    limite: int = Query(10, ge=1, le=50, description="Nombre d'entrées"),
+    current_user: CurrentAdmin = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Get recent activity from audit log.
+    """
+    logs = db.query(AuditLog).options(
+        joinedload(AuditLog.utilisateur)
+    ).order_by(
+        AuditLog.created_at.desc()
+    ).limit(limite).all()
+
+    return [
+        {
+            "id": str(log.id),
+            "action": log.action.value if hasattr(log.action, 'value') else str(log.action),
+            "table_name": log.table_name,
+            "description": f"{log.action.value if hasattr(log.action, 'value') else log.action} sur {log.table_name}",
+            "user_id": str(log.utilisateur_id) if log.utilisateur_id else None,
+            "user_nom": log.utilisateur.nom if log.utilisateur else "Système",
+            "created_at": log.created_at.isoformat(),
+        }
+        for log in logs
+    ]
 
 
 @router.get(
