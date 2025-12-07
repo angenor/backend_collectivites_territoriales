@@ -37,6 +37,85 @@ from app.schemas.tableau import (
 router = APIRouter(prefix="/tableaux", tags=["Tableaux"])
 
 
+def _aggregate_parent_values_recettes(lignes: list[LigneRecettes]) -> list[LigneRecettes]:
+    """
+    Agrège les valeurs des enfants vers les parents.
+    Les parents (niveau 1 et 2) cumulent les valeurs de leurs enfants directs.
+    """
+    # Créer un dictionnaire par code pour accès rapide
+    lignes_by_code = {l.code: l for l in lignes}
+
+    # Trier par niveau décroissant pour agréger du bas vers le haut
+    sorted_codes = sorted(lignes_by_code.keys(), key=len, reverse=True)
+
+    for code in sorted_codes:
+        ligne = lignes_by_code[code]
+
+        # Trouver le parent (code sans le dernier caractère)
+        if len(code) > 2:
+            parent_code = code[:-1]
+            if parent_code in lignes_by_code:
+                parent = lignes_by_code[parent_code]
+
+                # Vérifier si c'est un enfant direct (un seul niveau de différence)
+                if parent.niveau == ligne.niveau - 1:
+                    # Agréger les valeurs
+                    parent.budget_primitif = (parent.budget_primitif or Decimal("0")) + (ligne.budget_primitif or Decimal("0"))
+                    parent.budget_additionnel = (parent.budget_additionnel or Decimal("0")) + (ligne.budget_additionnel or Decimal("0"))
+                    parent.modifications = (parent.modifications or Decimal("0")) + (ligne.modifications or Decimal("0"))
+                    parent.previsions_definitives = (parent.previsions_definitives or Decimal("0")) + (ligne.previsions_definitives or Decimal("0"))
+                    parent.or_admis = (parent.or_admis or Decimal("0")) + (ligne.or_admis or Decimal("0"))
+                    parent.recouvrement = (parent.recouvrement or Decimal("0")) + (ligne.recouvrement or Decimal("0"))
+                    parent.reste_a_recouvrer = (parent.reste_a_recouvrer or Decimal("0")) + (ligne.reste_a_recouvrer or Decimal("0"))
+
+    # Recalculer les taux d'exécution pour les parents
+    for ligne in lignes:
+        if ligne.niveau < 3 and ligne.previsions_definitives and ligne.previsions_definitives > 0:
+            ligne.taux_execution = (ligne.or_admis / ligne.previsions_definitives * 100) if ligne.or_admis else None
+
+    return lignes
+
+
+def _aggregate_parent_values_depenses(lignes: list[LigneDepenses]) -> list[LigneDepenses]:
+    """
+    Agrège les valeurs des enfants vers les parents pour les dépenses.
+    Les parents (niveau 1 et 2) cumulent les valeurs de leurs enfants directs.
+    """
+    # Créer un dictionnaire par code pour accès rapide
+    lignes_by_code = {l.code: l for l in lignes}
+
+    # Trier par niveau décroissant pour agréger du bas vers le haut
+    sorted_codes = sorted(lignes_by_code.keys(), key=len, reverse=True)
+
+    for code in sorted_codes:
+        ligne = lignes_by_code[code]
+
+        # Trouver le parent (code sans le dernier caractère)
+        if len(code) > 2:
+            parent_code = code[:-1]
+            if parent_code in lignes_by_code:
+                parent = lignes_by_code[parent_code]
+
+                # Vérifier si c'est un enfant direct (un seul niveau de différence)
+                if parent.niveau == ligne.niveau - 1:
+                    # Agréger les valeurs
+                    parent.budget_primitif = (parent.budget_primitif or Decimal("0")) + (ligne.budget_primitif or Decimal("0"))
+                    parent.budget_additionnel = (parent.budget_additionnel or Decimal("0")) + (ligne.budget_additionnel or Decimal("0"))
+                    parent.modifications = (parent.modifications or Decimal("0")) + (ligne.modifications or Decimal("0"))
+                    parent.previsions_definitives = (parent.previsions_definitives or Decimal("0")) + (ligne.previsions_definitives or Decimal("0"))
+                    parent.engagement = (parent.engagement or Decimal("0")) + (ligne.engagement or Decimal("0"))
+                    parent.mandat_admis = (parent.mandat_admis or Decimal("0")) + (ligne.mandat_admis or Decimal("0"))
+                    parent.paiement = (parent.paiement or Decimal("0")) + (ligne.paiement or Decimal("0"))
+                    parent.reste_a_payer = (parent.reste_a_payer or Decimal("0")) + (ligne.reste_a_payer or Decimal("0"))
+
+    # Recalculer les taux d'exécution pour les parents
+    for ligne in lignes:
+        if ligne.niveau < 3 and ligne.previsions_definitives and ligne.previsions_definitives > 0:
+            ligne.taux_execution = (ligne.mandat_admis / ligne.previsions_definitives * 100) if ligne.mandat_admis else None
+
+    return lignes
+
+
 def _get_commune_and_exercice(
     db: Session,
     commune_id: int,
@@ -120,16 +199,6 @@ def _build_recettes_sections(
                     taux_execution=taux
                 )
                 lignes.append(ligne)
-
-                # Accumulate totals only for level 1 items
-                if compte.niveau == 1 and compte.est_sommable:
-                    totals['budget_primitif'] += donnee.budget_primitif
-                    totals['budget_additionnel'] += donnee.budget_additionnel
-                    totals['modifications'] += donnee.modifications
-                    totals['previsions_definitives'] += prev_def
-                    totals['or_admis'] += donnee.or_admis
-                    totals['recouvrement'] += donnee.recouvrement
-                    totals['reste_a_recouvrer'] += donnee.reste_a_recouvrer
             else:
                 # No data for this compte, include with zeros
                 ligne = LigneRecettes(
@@ -139,6 +208,20 @@ def _build_recettes_sections(
                     est_sommable=compte.est_sommable,
                 )
                 lignes.append(ligne)
+
+        # Agréger les valeurs des enfants vers les parents
+        lignes = _aggregate_parent_values_recettes(lignes)
+
+        # Calculer les totaux à partir des lignes de niveau 1 (après agrégation)
+        for ligne in lignes:
+            if ligne.niveau == 1 and ligne.est_sommable:
+                totals['budget_primitif'] += ligne.budget_primitif or Decimal("0")
+                totals['budget_additionnel'] += ligne.budget_additionnel or Decimal("0")
+                totals['modifications'] += ligne.modifications or Decimal("0")
+                totals['previsions_definitives'] += ligne.previsions_definitives or Decimal("0")
+                totals['or_admis'] += ligne.or_admis or Decimal("0")
+                totals['recouvrement'] += ligne.recouvrement or Decimal("0")
+                totals['reste_a_recouvrer'] += ligne.reste_a_recouvrer or Decimal("0")
 
         # Calculate global execution rate
         taux_global = None
@@ -220,17 +303,6 @@ def _build_depenses_sections(
                     taux_execution=taux
                 )
                 lignes.append(ligne)
-
-                # Accumulate totals only for level 1 items
-                if compte.niveau == 1 and compte.est_sommable:
-                    totals['budget_primitif'] += donnee.budget_primitif
-                    totals['budget_additionnel'] += donnee.budget_additionnel
-                    totals['modifications'] += donnee.modifications
-                    totals['previsions_definitives'] += prev_def
-                    totals['engagement'] += donnee.engagement
-                    totals['mandat_admis'] += donnee.mandat_admis
-                    totals['paiement'] += donnee.paiement
-                    totals['reste_a_payer'] += donnee.reste_a_payer
             else:
                 # No data for this compte, include with zeros
                 ligne = LigneDepenses(
@@ -240,6 +312,21 @@ def _build_depenses_sections(
                     est_sommable=compte.est_sommable,
                 )
                 lignes.append(ligne)
+
+        # Agréger les valeurs des enfants vers les parents
+        lignes = _aggregate_parent_values_depenses(lignes)
+
+        # Calculer les totaux à partir des lignes de niveau 1 (après agrégation)
+        for ligne in lignes:
+            if ligne.niveau == 1 and ligne.est_sommable:
+                totals['budget_primitif'] += ligne.budget_primitif or Decimal("0")
+                totals['budget_additionnel'] += ligne.budget_additionnel or Decimal("0")
+                totals['modifications'] += ligne.modifications or Decimal("0")
+                totals['previsions_definitives'] += ligne.previsions_definitives or Decimal("0")
+                totals['engagement'] += ligne.engagement or Decimal("0")
+                totals['mandat_admis'] += ligne.mandat_admis or Decimal("0")
+                totals['paiement'] += ligne.paiement or Decimal("0")
+                totals['reste_a_payer'] += ligne.reste_a_payer or Decimal("0")
 
         # Calculate global execution rate
         taux_global = None
