@@ -109,7 +109,7 @@ class AuditLog(Base):
     table_name: Mapped[str] = mapped_column(String(100), nullable=False)
     record_id: Mapped[int] = mapped_column(Integer, nullable=False)
     action: Mapped[ActionAudit] = mapped_column(
-        Enum(ActionAudit, name="action_audit", create_type=False),
+        Enum(ActionAudit, name="action_audit", create_type=False, values_callable=lambda x: [e.value for e in x]),
         nullable=False
     )
     old_values: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)

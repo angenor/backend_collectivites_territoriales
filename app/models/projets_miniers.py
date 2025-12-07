@@ -70,7 +70,7 @@ class ProjetMinier(Base, TimestampMixin):
     )
     type_minerai: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     statut: Mapped[Optional[StatutProjetMinier]] = mapped_column(
-        Enum(StatutProjetMinier, name="statut_projet_minier", create_type=False),
+        Enum(StatutProjetMinier, name="statut_projet_minier", create_type=False, values_callable=lambda x: [e.value for e in x]),
         nullable=True
     )
     date_debut_exploitation: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
@@ -175,7 +175,7 @@ class RevenuMinier(Base, TimestampMixin):
         nullable=True
     )
     type_revenu: Mapped[TypeRevenuMinier] = mapped_column(
-        Enum(TypeRevenuMinier, name="type_revenu_minier", create_type=False),
+        Enum(TypeRevenuMinier, name="type_revenu_minier", create_type=False, values_callable=lambda x: [e.value for e in x]),
         nullable=False
     )
     montant_prevu: Mapped[Decimal] = mapped_column(

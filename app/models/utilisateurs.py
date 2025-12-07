@@ -39,7 +39,12 @@ class Utilisateur(Base, TimestampMixin):
     nom: Mapped[str] = mapped_column(String(100), nullable=False)
     prenom: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     role: Mapped[RoleUtilisateur] = mapped_column(
-        Enum(RoleUtilisateur, name="role_utilisateur", create_type=False),
+        Enum(
+            RoleUtilisateur,
+            name="role_utilisateur",
+            create_type=False,
+            values_callable=lambda x: [e.value for e in x]
+        ),
         nullable=False,
         default=RoleUtilisateur.LECTEUR
     )

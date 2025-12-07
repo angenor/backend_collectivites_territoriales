@@ -44,11 +44,11 @@ class PlanComptable(Base, TimestampMixin):
     intitule: Mapped[str] = mapped_column(String(255), nullable=False)
     niveau: Mapped[int] = mapped_column(Integer, nullable=False)
     type_mouvement: Mapped[TypeMouvement] = mapped_column(
-        Enum(TypeMouvement, name="type_mouvement", create_type=False),
+        Enum(TypeMouvement, name="type_mouvement", create_type=False, values_callable=lambda x: [e.value for e in x]),
         nullable=False
     )
     section: Mapped[SectionBudgetaire] = mapped_column(
-        Enum(SectionBudgetaire, name="section_budgetaire", create_type=False),
+        Enum(SectionBudgetaire, name="section_budgetaire", create_type=False, values_callable=lambda x: [e.value for e in x]),
         nullable=False
     )
     parent_code: Mapped[Optional[str]] = mapped_column(

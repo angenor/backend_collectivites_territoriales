@@ -61,7 +61,7 @@ class PageCompteAdministratif(Base, TimestampMixin):
 
     # Statut et publication
     statut: Mapped[StatutPublication] = mapped_column(
-        Enum(StatutPublication, name="statut_publication", create_type=False),
+        Enum(StatutPublication, name="statut_publication", create_type=False, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=StatutPublication.BROUILLON
     )
@@ -154,7 +154,7 @@ class SectionCMS(Base, TimestampMixin):
 
     # Type et identification
     type_section: Mapped[TypeSectionCMS] = mapped_column(
-        Enum(TypeSectionCMS, name="type_section_cms", create_type=False),
+        Enum(TypeSectionCMS, name="type_section_cms", create_type=False, values_callable=lambda x: [e.value for e in x]),
         nullable=False
     )
     titre: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -368,7 +368,7 @@ class CarteInformative(Base, TimestampMixin):
 
     # Type de carte: image ou statistique
     type_carte: Mapped[TypeCarte] = mapped_column(
-        Enum(TypeCarte, name="type_carte", create_type=False),
+        Enum(TypeCarte, name="type_carte", create_type=False, values_callable=lambda x: [e.value for e in x]),
         default=TypeCarte.IMAGE
     )
 

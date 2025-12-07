@@ -42,7 +42,7 @@ class Document(Base, TimestampMixin):
         nullable=True
     )
     type_document: Mapped[TypeDocument] = mapped_column(
-        Enum(TypeDocument, name="type_document", create_type=False),
+        Enum(TypeDocument, name="type_document", create_type=False, values_callable=lambda x: [e.value for e in x]),
         nullable=False
     )
     titre: Mapped[str] = mapped_column(String(255), nullable=False)

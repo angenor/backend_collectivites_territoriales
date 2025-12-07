@@ -93,7 +93,7 @@ class Commune(Base, TimestampMixin):
     code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     nom: Mapped[str] = mapped_column(String(150), nullable=False)
     type_commune: Mapped[Optional[TypeCommune]] = mapped_column(
-        Enum(TypeCommune, name="type_commune_enum", create_type=False),
+        Enum(TypeCommune, name="type_commune_enum", create_type=False, values_callable=lambda x: [e.value for e in x]),
         nullable=True
     )
     region_id: Mapped[int] = mapped_column(
