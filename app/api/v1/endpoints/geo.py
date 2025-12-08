@@ -11,16 +11,21 @@ from sqlalchemy.orm import Session, joinedload
 from app.api.deps import DbSession, get_db
 from app.models.geographie import Commune, Province, Region
 from app.models.enums import TypeCommune
+from sqlalchemy import func
+
 from app.schemas.geographie import (
     CommuneDetail,
     CommuneList,
     CommuneSearch,
+    CommuneWithStats,
     HierarchieGeographique,
     ProvinceList,
     ProvinceWithRegions,
+    ProvinceWithStats,
     RegionDetail,
     RegionList,
     RegionWithProvince,
+    RegionWithStats,
 )
 
 router = APIRouter(prefix="/geo", tags=["Géographie"])
@@ -32,20 +37,33 @@ router = APIRouter(prefix="/geo", tags=["Géographie"])
 
 @router.get(
     "/provinces",
-    response_model=list[ProvinceList],
+    response_model=list[ProvinceWithStats],
     summary="Liste des provinces",
-    description="Retourne la liste des 6 provinces de Madagascar."
+    description="Retourne la liste des 6 provinces de Madagascar avec statistiques."
 )
 async def list_provinces(
     db: Session = Depends(get_db),
 ):
     """
-    Get list of all provinces.
+    Get list of all provinces with statistics.
 
-    Returns the 6 provinces of Madagascar ordered by name.
+    Returns the 6 provinces of Madagascar ordered by name,
+    with nb_regions and nb_communes counts.
     """
-    provinces = db.query(Province).order_by(Province.nom).all()
-    return provinces
+    provinces = db.query(Province).options(
+        joinedload(Province.regions).joinedload(Region.communes)
+    ).order_by(Province.nom).all()
+
+    return [
+        ProvinceWithStats(
+            id=p.id,
+            code=p.code,
+            nom=p.nom,
+            nb_regions=len(p.regions),
+            nb_communes=sum(len(r.communes) for r in p.regions)
+        )
+        for p in provinces
+    ]
 
 
 @router.get(
@@ -80,9 +98,9 @@ async def get_province(
 
 @router.get(
     "/regions",
-    response_model=list[RegionList],
+    response_model=list[RegionWithStats],
     summary="Liste des régions",
-    description="Retourne la liste des 22 régions de Madagascar, avec filtre optionnel par province."
+    description="Retourne la liste des 22 régions de Madagascar avec statistiques, filtre optionnel par province."
 )
 async def list_regions(
     province_id: Optional[int] = Query(
@@ -92,17 +110,32 @@ async def list_regions(
     db: Session = Depends(get_db),
 ):
     """
-    Get list of all regions.
+    Get list of all regions with statistics.
 
     Optionally filter by province_id.
+    Returns regions with nb_communes count and province_nom.
     """
-    query = db.query(Region)
+    query = db.query(Region).options(
+        joinedload(Region.province),
+        joinedload(Region.communes)
+    )
 
     if province_id:
         query = query.filter(Region.province_id == province_id)
 
     regions = query.order_by(Region.nom).all()
-    return regions
+
+    return [
+        RegionWithStats(
+            id=r.id,
+            code=r.code,
+            nom=r.nom,
+            province_id=r.province_id,
+            nb_communes=len(r.communes),
+            province_nom=r.province.nom if r.province else None
+        )
+        for r in regions
+    ]
 
 
 @router.get(
@@ -138,9 +171,9 @@ async def get_region(
 
 @router.get(
     "/communes",
-    response_model=list[CommuneList],
+    response_model=list[CommuneWithStats],
     summary="Liste des communes",
-    description="Retourne la liste des communes, avec filtres optionnels par région ou type."
+    description="Retourne la liste des communes avec statistiques, filtres optionnels par région ou type."
 )
 async def list_communes(
     region_id: Optional[int] = Query(
@@ -171,7 +204,7 @@ async def list_communes(
     db: Session = Depends(get_db),
 ):
     """
-    Get list of communes with optional filters.
+    Get list of communes with optional filters and stats.
 
     - **region_id**: Filter by region
     - **type_commune**: Filter by commune type (urbaine, rurale)
@@ -179,7 +212,9 @@ async def list_communes(
     - **limit**: Max results (default 100, max 500)
     - **offset**: Skip results for pagination
     """
-    query = db.query(Commune)
+    query = db.query(Commune).options(
+        joinedload(Commune.region).joinedload(Region.province)
+    )
 
     if region_id:
         query = query.filter(Commune.region_id == region_id)
@@ -191,7 +226,20 @@ async def list_communes(
         query = query.filter(Commune.nom.ilike(f"%{search}%"))
 
     communes = query.order_by(Commune.nom).offset(offset).limit(limit).all()
-    return communes
+
+    return [
+        CommuneWithStats(
+            id=c.id,
+            code=c.code,
+            nom=c.nom,
+            type_commune=c.type_commune,
+            region_id=c.region_id,
+            region_nom=c.region.nom if c.region else None,
+            province_nom=c.region.province.nom if c.region and c.region.province else None,
+            nb_comptes_administratifs=0  # TODO: Add actual count when needed
+        )
+        for c in communes
+    ]
 
 
 @router.get(

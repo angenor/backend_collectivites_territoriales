@@ -45,6 +45,15 @@ class ProvinceList(BaseSchema):
     nom: str
 
 
+class ProvinceWithStats(BaseSchema):
+    """Province with statistics (nb_regions, nb_communes)."""
+    id: int
+    code: str
+    nom: str
+    nb_regions: int = 0
+    nb_communes: int = 0
+
+
 class ProvinceWithRegions(ProvinceRead):
     """Province with nested regions."""
     regions: List["RegionList"] = []
@@ -84,6 +93,16 @@ class RegionList(BaseSchema):
     code: str
     nom: str
     province_id: int
+
+
+class RegionWithStats(BaseSchema):
+    """Region with statistics (nb_communes, province_nom)."""
+    id: int
+    code: str
+    nom: str
+    province_id: int
+    nb_communes: int = 0
+    province_nom: Optional[str] = None
 
 
 class RegionWithProvince(RegionRead):
@@ -143,6 +162,18 @@ class CommuneList(BaseSchema):
     nom: str
     type_commune: Optional[TypeCommune] = None
     region_id: int
+
+
+class CommuneWithStats(BaseSchema):
+    """Commune with statistics and parent names."""
+    id: int
+    code: str
+    nom: str
+    type_commune: Optional[TypeCommune] = None
+    region_id: int
+    region_nom: Optional[str] = None
+    province_nom: Optional[str] = None
+    nb_comptes_administratifs: int = 0
 
 
 class CommuneWithRegion(CommuneRead):
