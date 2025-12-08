@@ -6,6 +6,7 @@ CRUD operations for users (admin only).
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import CurrentAdmin, get_db
@@ -27,36 +28,49 @@ router = APIRouter(prefix="/utilisateurs", tags=["Admin - Utilisateurs"])
 
 @router.get(
     "",
-    response_model=list[UserList],
+    response_model=dict,
     summary="Liste des utilisateurs",
-    description="Retourne la liste de tous les utilisateurs (admin uniquement).",
+    description="Retourne la liste paginée de tous les utilisateurs (admin uniquement).",
 )
 async def list_utilisateurs(
     current_user: CurrentAdmin,
     role: Optional[RoleUtilisateur] = Query(None, description="Filtrer par rôle"),
+    role_code: Optional[str] = Query(None, description="Filtrer par code de rôle"),
     actif: Optional[bool] = Query(None, description="Filtrer par statut actif"),
     commune_id: Optional[int] = Query(None, description="Filtrer par commune"),
     search: Optional[str] = Query(
         None, min_length=2, max_length=100, description="Recherche par nom/email"
     ),
-    limit: int = Query(50, ge=1, le=200, description="Nombre maximum de résultats"),
-    offset: int = Query(0, ge=0, description="Nombre de résultats à ignorer"),
+    page: int = Query(1, ge=1, description="Numéro de page"),
+    limit: int = Query(10, ge=1, le=100, description="Nombre de résultats par page"),
     db: Session = Depends(get_db),
 ):
     """
-    Get list of all users.
+    Get paginated list of all users.
 
-    - **role**: Filter by user role
+    - **role**: Filter by user role (enum)
+    - **role_code**: Filter by role code (string: admin, editeur, lecteur, commune)
     - **actif**: Filter by active status
     - **commune_id**: Filter by commune
     - **search**: Search in name or email
-    - **limit**: Max results (default 50)
-    - **offset**: Skip results for pagination
+    - **page**: Page number (default 1)
+    - **limit**: Results per page (default 10)
     """
     query = db.query(Utilisateur)
 
     if role:
         query = query.filter(Utilisateur.role == role)
+
+    if role_code:
+        # Map role code to enum
+        role_map = {
+            'admin': RoleUtilisateur.ADMIN,
+            'editeur': RoleUtilisateur.EDITEUR,
+            'lecteur': RoleUtilisateur.LECTEUR,
+            'commune': RoleUtilisateur.COMMUNE,
+        }
+        if role_code in role_map:
+            query = query.filter(Utilisateur.role == role_map[role_code])
 
     if actif is not None:
         query = query.filter(Utilisateur.actif == actif)
@@ -72,19 +86,49 @@ async def list_utilisateurs(
             | (Utilisateur.email.ilike(search_pattern))
         )
 
+    # Get total count
+    total = query.count()
+
+    # Calculate offset from page
+    offset = (page - 1) * limit
+
+    # Get paginated results
     users = query.order_by(Utilisateur.nom).offset(offset).limit(limit).all()
 
-    return [
-        UserList(
-            id=u.id,
-            email=u.email,
-            nom=u.nom,
-            prenom=u.prenom,
-            role=u.role,
-            actif=u.actif,
-        )
-        for u in users
-    ]
+    # Build user list with stats
+    items = []
+    for u in users:
+        items.append({
+            "id": str(u.id),
+            "email": u.email,
+            "nom": u.nom,
+            "prenom": u.prenom,
+            "role": {
+                "id": str(u.id),
+                "code": u.role.value if hasattr(u.role, 'value') else str(u.role),
+                "nom": {
+                    'admin': 'Administrateur',
+                    'editeur': 'Éditeur',
+                    'lecteur': 'Lecteur',
+                    'commune': 'Commune',
+                }.get(u.role.value if hasattr(u.role, 'value') else str(u.role), u.role.value if hasattr(u.role, 'value') else str(u.role)),
+                "actif": True,
+            },
+            "actif": u.actif,
+            "email_verifie": u.email_verifie,
+            "derniere_connexion": u.derniere_connexion.isoformat() if u.derniere_connexion else None,
+            "created_at": u.created_at.isoformat() if u.created_at else None,
+            "updated_at": u.updated_at.isoformat() if u.updated_at else None,
+            "nombre_connexions": 0,  # TODO: Track in database
+        })
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "pages": (total + limit - 1) // limit if limit > 0 else 0,
+    }
 
 
 @router.get(
