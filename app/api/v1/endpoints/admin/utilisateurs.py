@@ -133,7 +133,7 @@ async def list_utilisateurs(
 
 @router.get(
     "/{user_id}",
-    response_model=UserWithCommune,
+    response_model=dict,
     summary="Détail d'un utilisateur",
     description="Retourne les détails complets d'un utilisateur.",
 )
@@ -157,24 +157,38 @@ async def get_utilisateur(
             status_code=status.HTTP_404_NOT_FOUND, detail="Utilisateur non trouvé"
         )
 
-    return UserWithCommune(
-        id=user.id,
-        email=user.email,
-        nom=user.nom,
-        prenom=user.prenom,
-        role=user.role,
-        commune_id=user.commune_id,
-        actif=user.actif,
-        email_verifie=user.email_verifie,
-        derniere_connexion=user.derniere_connexion,
-        nom_complet=user.nom_complet,
-        is_admin=user.is_admin,
-        is_editor=user.is_editor,
-        created_at=user.created_at,
-        updated_at=user.updated_at,
-        commune_nom=user.commune.nom if user.commune else None,
-        commune_code=user.commune.code if user.commune else None,
-    )
+    role_code = user.role.value if hasattr(user.role, 'value') else str(user.role)
+    role_names = {
+        'admin': 'Administrateur',
+        'editeur': 'Éditeur',
+        'lecteur': 'Lecteur',
+        'commune': 'Commune',
+    }
+
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "nom": user.nom,
+        "prenom": user.prenom,
+        "role": {
+            "id": role_code,
+            "code": role_code,
+            "nom": role_names.get(role_code, role_code),
+            "actif": True,
+        },
+        "commune_id": user.commune_id,
+        "actif": user.actif,
+        "email_verifie": user.email_verifie,
+        "derniere_connexion": user.derniere_connexion.isoformat() if user.derniere_connexion else None,
+        "nom_complet": user.nom_complet,
+        "is_admin": user.is_admin,
+        "is_editor": user.is_editor,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+        "updated_at": user.updated_at.isoformat() if user.updated_at else None,
+        "commune_nom": user.commune.nom if user.commune else None,
+        "commune_code": user.commune.code if user.commune else None,
+        "nombre_connexions": 0,  # TODO: Track in database
+    }
 
 
 @router.post(
