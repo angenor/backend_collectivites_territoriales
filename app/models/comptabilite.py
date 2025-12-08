@@ -353,3 +353,41 @@ class DonneesDepenses(Base, TimestampMixin):
         if prev > 0:
             return (self.mandat_admis / prev) * 100
         return Decimal("0.00")
+
+
+class ColonneDynamique(Base, TimestampMixin):
+    """
+    Colonnes dynamiques pour les tableaux de recettes et dépenses.
+    Permet de définir les colonnes affichées dans les comptes administratifs.
+    """
+    __tablename__ = "colonnes_dynamiques"
+    __table_args__ = (
+        Index("idx_colonnes_applicable", "applicable_a"),
+        Index("idx_colonnes_ordre", "applicable_a", "ordre"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    cle: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    label: Mapped[str] = mapped_column(String(100), nullable=False)
+    applicable_a: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="tous"
+    )  # recette | depense | tous | equilibre
+    type_donnee: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="montant"
+    )  # montant | pourcentage | texte | date | nombre
+    formule: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    largeur: Mapped[int] = mapped_column(Integer, default=120)
+    ordre: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    est_obligatoire: Mapped[bool] = mapped_column(Boolean, default=False)
+    est_editable: Mapped[bool] = mapped_column(Boolean, default=True)
+    est_visible: Mapped[bool] = mapped_column(Boolean, default=True)
+    est_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    est_systeme: Mapped[bool] = mapped_column(Boolean, default=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<ColonneDynamique(cle='{self.cle}', label='{self.label}')>"

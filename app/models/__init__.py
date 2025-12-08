@@ -33,6 +33,7 @@ from app.models.comptabilite import (
     Exercice,
     DonneesRecettes,
     DonneesDepenses,
+    ColonneDynamique,
 )
 
 # Mining project models
@@ -92,6 +93,7 @@ __all__ = [
     "Exercice",
     "DonneesRecettes",
     "DonneesDepenses",
+    "ColonneDynamique",
     # Mining
     "SocieteMiniere",
     "ProjetMinier",

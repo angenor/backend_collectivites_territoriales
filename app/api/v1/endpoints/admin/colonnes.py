@@ -1,13 +1,16 @@
 """
 Admin API endpoints for Colonnes Dynamiques.
-Returns column definitions for the budget tables.
+CRUD operations for dynamic column definitions.
 """
 
-from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Query
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
+from app.api.deps import CurrentEditor, get_db
+from app.models.comptabilite import ColonneDynamique
 
 router = APIRouter(prefix="/colonnes", tags=["Admin - Colonnes Dynamiques"])
 
@@ -16,232 +19,69 @@ router = APIRouter(prefix="/colonnes", tags=["Admin - Colonnes Dynamiques"])
 # SCHEMAS
 # ============================================================================
 
-class ColonneDynamiqueRead(BaseModel):
-    id: str
-    code: str
-    nom: str
-    type_donnee: str  # montant | pourcentage | texte | date | nombre
-    ordre: int
-    est_calculee: bool
-    formule_calcul: Optional[str] = None
-    format_affichage: Optional[str] = None
-    est_active: bool
-    applicable_a: str  # recette | depense | tous
+class ColonneBase(BaseModel):
+    """Base schema for colonne dynamique."""
+    cle: str = Field(..., min_length=1, max_length=50)
+    label: str = Field(..., min_length=1, max_length=100)
+    applicable_a: str = Field(default="tous", pattern="^(recette|depense|tous|equilibre)$")
+    type_donnee: str = Field(default="montant", pattern="^(montant|pourcentage|texte|date|nombre)$")
+    formule: Optional[str] = Field(default=None, max_length=255)
+    largeur: int = Field(default=120, ge=50, le=500)
+    ordre: int = Field(default=1, ge=1)
+    est_obligatoire: bool = False
+    est_editable: bool = True
+    est_visible: bool = True
+    est_active: bool = True
     description: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
 
 
-# ============================================================================
-# STATIC COLUMN DEFINITIONS
-# ============================================================================
+class ColonneCreate(ColonneBase):
+    """Schema for creating a colonne."""
+    pass
 
-# Colonnes pour les recettes
-COLONNES_RECETTES = [
-    ColonneDynamiqueRead(
-        id="col-rec-bp",
-        code="budget_primitif",
-        nom="Budget Primitif",
-        type_donnee="montant",
-        ordre=1,
-        est_calculee=False,
-        est_active=True,
-        applicable_a="recette",
-        description="Budget voté initialement",
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-    ),
-    ColonneDynamiqueRead(
-        id="col-rec-ba",
-        code="budget_additionnel",
-        nom="Budget Additionnel",
-        type_donnee="montant",
-        ordre=2,
-        est_calculee=False,
-        est_active=True,
-        applicable_a="recette",
-        description="Modifications budgétaires additionnelles",
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-    ),
-    ColonneDynamiqueRead(
-        id="col-rec-mod",
-        code="modifications",
-        nom="Modifications",
-        type_donnee="montant",
-        ordre=3,
-        est_calculee=False,
-        est_active=True,
-        applicable_a="recette",
-        description="Autres modifications",
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-    ),
-    ColonneDynamiqueRead(
-        id="col-rec-pd",
-        code="previsions_definitives",
-        nom="Prévisions Définitives",
-        type_donnee="montant",
-        ordre=4,
-        est_calculee=True,
-        formule_calcul="budget_primitif + budget_additionnel + modifications",
-        est_active=True,
-        applicable_a="recette",
-        description="Total des prévisions",
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-    ),
-    ColonneDynamiqueRead(
-        id="col-rec-or",
-        code="or_admis",
-        nom="OR Admis",
-        type_donnee="montant",
-        ordre=5,
-        est_calculee=False,
-        est_active=True,
-        applicable_a="recette",
-        description="Ordres de recettes admis",
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-    ),
-    ColonneDynamiqueRead(
-        id="col-rec-rec",
-        code="recouvrement",
-        nom="Recouvrement",
-        type_donnee="montant",
-        ordre=6,
-        est_calculee=False,
-        est_active=True,
-        applicable_a="recette",
-        description="Montant recouvré",
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-    ),
-    ColonneDynamiqueRead(
-        id="col-rec-rar",
-        code="reste_a_recouvrer",
-        nom="Reste à Recouvrer",
-        type_donnee="montant",
-        ordre=7,
-        est_calculee=True,
-        formule_calcul="or_admis - recouvrement",
-        est_active=True,
-        applicable_a="recette",
-        description="Montant restant à recouvrer",
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-    ),
-]
 
-# Colonnes pour les dépenses
-COLONNES_DEPENSES = [
-    ColonneDynamiqueRead(
-        id="col-dep-bp",
-        code="budget_primitif",
-        nom="Budget Primitif",
-        type_donnee="montant",
-        ordre=1,
-        est_calculee=False,
-        est_active=True,
-        applicable_a="depense",
-        description="Budget voté initialement",
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-    ),
-    ColonneDynamiqueRead(
-        id="col-dep-ba",
-        code="budget_additionnel",
-        nom="Budget Additionnel",
-        type_donnee="montant",
-        ordre=2,
-        est_calculee=False,
-        est_active=True,
-        applicable_a="depense",
-        description="Modifications budgétaires additionnelles",
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-    ),
-    ColonneDynamiqueRead(
-        id="col-dep-mod",
-        code="modifications",
-        nom="Modifications",
-        type_donnee="montant",
-        ordre=3,
-        est_calculee=False,
-        est_active=True,
-        applicable_a="depense",
-        description="Autres modifications",
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-    ),
-    ColonneDynamiqueRead(
-        id="col-dep-pd",
-        code="previsions_definitives",
-        nom="Prévisions Définitives",
-        type_donnee="montant",
-        ordre=4,
-        est_calculee=True,
-        formule_calcul="budget_primitif + budget_additionnel + modifications",
-        est_active=True,
-        applicable_a="depense",
-        description="Total des prévisions",
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-    ),
-    ColonneDynamiqueRead(
-        id="col-dep-eng",
-        code="engagement",
-        nom="Engagement",
-        type_donnee="montant",
-        ordre=5,
-        est_calculee=False,
-        est_active=True,
-        applicable_a="depense",
-        description="Montant engagé",
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-    ),
-    ColonneDynamiqueRead(
-        id="col-dep-ma",
-        code="mandat_admis",
-        nom="Mandat Admis",
-        type_donnee="montant",
-        ordre=6,
-        est_calculee=False,
-        est_active=True,
-        applicable_a="depense",
-        description="Mandats admis",
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-    ),
-    ColonneDynamiqueRead(
-        id="col-dep-pai",
-        code="paiement",
-        nom="Paiement",
-        type_donnee="montant",
-        ordre=7,
-        est_calculee=False,
-        est_active=True,
-        applicable_a="depense",
-        description="Montant payé",
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-    ),
-    ColonneDynamiqueRead(
-        id="col-dep-rap",
-        code="reste_a_payer",
-        nom="Reste à Payer",
-        type_donnee="montant",
-        ordre=8,
-        est_calculee=True,
-        formule_calcul="mandat_admis - paiement",
-        est_active=True,
-        applicable_a="depense",
-        description="Montant restant à payer",
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-    ),
-]
+class ColonneUpdate(BaseModel):
+    """Schema for updating a colonne."""
+    label: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    applicable_a: Optional[str] = Field(default=None, pattern="^(recette|depense|tous|equilibre)$")
+    type_donnee: Optional[str] = Field(default=None, pattern="^(montant|pourcentage|texte|date|nombre)$")
+    formule: Optional[str] = Field(default=None, max_length=255)
+    largeur: Optional[int] = Field(default=None, ge=50, le=500)
+    ordre: Optional[int] = Field(default=None, ge=1)
+    est_obligatoire: Optional[bool] = None
+    est_editable: Optional[bool] = None
+    est_visible: Optional[bool] = None
+    est_active: Optional[bool] = None
+    description: Optional[str] = None
+
+
+class ColonneRead(ColonneBase):
+    """Schema for reading a colonne."""
+    id: int
+    est_systeme: bool
+
+    class Config:
+        from_attributes = True
+
+
+class ColonneReorderItem(BaseModel):
+    """Schema for reorder request item."""
+    id: int
+    ordre: int
+
+
+class ColonneReorderRequest(BaseModel):
+    """Schema for batch reorder request."""
+    colonnes: list[ColonneReorderItem]
+
+
+class PaginatedColonnesResponse(BaseModel):
+    """Paginated response for colonnes."""
+    items: list[ColonneRead]
+    total: int
+    page: int
+    limit: int
+    pages: int
 
 
 # ============================================================================
@@ -250,50 +90,294 @@ COLONNES_DEPENSES = [
 
 @router.get(
     "",
-    response_model=list[ColonneDynamiqueRead],
+    response_model=PaginatedColonnesResponse,
     summary="Liste des colonnes dynamiques",
     description="Retourne les définitions des colonnes pour les tableaux budgétaires.",
 )
 async def list_colonnes(
-    applicable_a: Optional[str] = Query(default=None, description="Filtrer: recette, depense, tous"),
+    current_user: CurrentEditor,
+    applicable_a: Optional[str] = Query(default=None, description="Filtrer: recette, depense, tous, equilibre"),
     est_active: Optional[bool] = Query(default=None, description="Filtrer par colonnes actives"),
+    search: Optional[str] = Query(default=None, description="Recherche par clé ou label"),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db),
 ):
-    """
-    Get list of dynamic column definitions.
-    Returns predefined columns for recettes and depenses tables.
-    """
-    colonnes = []
+    """Get paginated list of dynamic column definitions."""
+    query = db.query(ColonneDynamique)
 
-    if applicable_a is None or applicable_a in ("recette", "tous"):
-        colonnes.extend(COLONNES_RECETTES)
-
-    if applicable_a is None or applicable_a in ("depense", "tous"):
-        colonnes.extend(COLONNES_DEPENSES)
+    # Apply filters
+    if applicable_a:
+        query = query.filter(ColonneDynamique.applicable_a == applicable_a)
 
     if est_active is not None:
-        colonnes = [c for c in colonnes if c.est_active == est_active]
+        query = query.filter(ColonneDynamique.est_active == est_active)
 
-    # Sort by ordre
-    colonnes.sort(key=lambda c: c.ordre)
+    if search:
+        search_pattern = f"%{search}%"
+        query = query.filter(
+            ColonneDynamique.cle.ilike(search_pattern) |
+            ColonneDynamique.label.ilike(search_pattern)
+        )
 
-    return colonnes
+    # Count total
+    total = query.count()
+
+    # Apply ordering and pagination
+    query = query.order_by(ColonneDynamique.applicable_a, ColonneDynamique.ordre)
+    offset = (page - 1) * limit
+    colonnes = query.offset(offset).limit(limit).all()
+
+    pages = (total + limit - 1) // limit if total > 0 else 1
+
+    items = []
+    for c in colonnes:
+        items.append(ColonneRead(
+            id=c.id,
+            cle=c.cle,
+            label=c.label,
+            applicable_a=c.applicable_a,
+            type_donnee=c.type_donnee,
+            formule=c.formule,
+            largeur=c.largeur,
+            ordre=c.ordre,
+            est_obligatoire=c.est_obligatoire,
+            est_editable=c.est_editable,
+            est_visible=c.est_visible,
+            est_active=c.est_active,
+            est_systeme=c.est_systeme,
+            description=c.description,
+        ))
+
+    return PaginatedColonnesResponse(
+        items=items,
+        total=total,
+        page=page,
+        limit=limit,
+        pages=pages,
+    )
 
 
 @router.get(
     "/{colonne_id}",
-    response_model=ColonneDynamiqueRead,
+    response_model=ColonneRead,
     summary="Détail d'une colonne dynamique",
     description="Retourne les détails d'une colonne dynamique.",
 )
-async def get_colonne(colonne_id: str):
+async def get_colonne(
+    colonne_id: int,
+    current_user: CurrentEditor,
+    db: Session = Depends(get_db),
+):
     """Get a single column definition by ID."""
-    all_colonnes = COLONNES_RECETTES + COLONNES_DEPENSES
-    for col in all_colonnes:
-        if col.id == colonne_id:
-            return col
+    colonne = db.query(ColonneDynamique).filter(ColonneDynamique.id == colonne_id).first()
 
-    from fastapi import HTTPException, status
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Colonne non trouvée"
+    if not colonne:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Colonne non trouvée"
+        )
+
+    return ColonneRead(
+        id=colonne.id,
+        cle=colonne.cle,
+        label=colonne.label,
+        applicable_a=colonne.applicable_a,
+        type_donnee=colonne.type_donnee,
+        formule=colonne.formule,
+        largeur=colonne.largeur,
+        ordre=colonne.ordre,
+        est_obligatoire=colonne.est_obligatoire,
+        est_editable=colonne.est_editable,
+        est_visible=colonne.est_visible,
+        est_active=colonne.est_active,
+        est_systeme=colonne.est_systeme,
+        description=colonne.description,
     )
+
+
+@router.post(
+    "",
+    response_model=ColonneRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Créer une colonne dynamique",
+    description="Crée une nouvelle colonne dynamique.",
+)
+async def create_colonne(
+    data: ColonneCreate,
+    current_user: CurrentEditor,
+    db: Session = Depends(get_db),
+):
+    """Create a new column definition."""
+    # Check if cle already exists
+    existing = db.query(ColonneDynamique).filter(ColonneDynamique.cle == data.cle).first()
+
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Une colonne avec la clé '{data.cle}' existe déjà"
+        )
+
+    # Create colonne
+    colonne = ColonneDynamique(
+        cle=data.cle,
+        label=data.label,
+        applicable_a=data.applicable_a,
+        type_donnee=data.type_donnee,
+        formule=data.formule,
+        largeur=data.largeur,
+        ordre=data.ordre,
+        est_obligatoire=data.est_obligatoire,
+        est_editable=data.est_editable,
+        est_visible=data.est_visible,
+        est_active=data.est_active,
+        est_systeme=False,  # User-created columns are never system columns
+        description=data.description,
+    )
+
+    db.add(colonne)
+    db.commit()
+    db.refresh(colonne)
+
+    return ColonneRead(
+        id=colonne.id,
+        cle=colonne.cle,
+        label=colonne.label,
+        applicable_a=colonne.applicable_a,
+        type_donnee=colonne.type_donnee,
+        formule=colonne.formule,
+        largeur=colonne.largeur,
+        ordre=colonne.ordre,
+        est_obligatoire=colonne.est_obligatoire,
+        est_editable=colonne.est_editable,
+        est_visible=colonne.est_visible,
+        est_active=colonne.est_active,
+        est_systeme=colonne.est_systeme,
+        description=colonne.description,
+    )
+
+
+@router.put(
+    "/{colonne_id}",
+    response_model=ColonneRead,
+    summary="Modifier une colonne dynamique",
+    description="Met à jour une colonne dynamique existante.",
+)
+async def update_colonne(
+    colonne_id: int,
+    data: ColonneUpdate,
+    current_user: CurrentEditor,
+    db: Session = Depends(get_db),
+):
+    """Update an existing column definition."""
+    colonne = db.query(ColonneDynamique).filter(ColonneDynamique.id == colonne_id).first()
+
+    if not colonne:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Colonne non trouvée"
+        )
+
+    # Update fields
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(colonne, field, value)
+
+    db.commit()
+    db.refresh(colonne)
+
+    return ColonneRead(
+        id=colonne.id,
+        cle=colonne.cle,
+        label=colonne.label,
+        applicable_a=colonne.applicable_a,
+        type_donnee=colonne.type_donnee,
+        formule=colonne.formule,
+        largeur=colonne.largeur,
+        ordre=colonne.ordre,
+        est_obligatoire=colonne.est_obligatoire,
+        est_editable=colonne.est_editable,
+        est_visible=colonne.est_visible,
+        est_active=colonne.est_active,
+        est_systeme=colonne.est_systeme,
+        description=colonne.description,
+    )
+
+
+@router.delete(
+    "/{colonne_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Supprimer une colonne dynamique",
+    description="Supprime une colonne dynamique.",
+)
+async def delete_colonne(
+    colonne_id: int,
+    current_user: CurrentEditor,
+    db: Session = Depends(get_db),
+):
+    """Delete a column definition."""
+    colonne = db.query(ColonneDynamique).filter(ColonneDynamique.id == colonne_id).first()
+
+    if not colonne:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Colonne non trouvée"
+        )
+
+    if colonne.est_systeme:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Les colonnes système ne peuvent pas être supprimées"
+        )
+
+    db.delete(colonne)
+    db.commit()
+
+    return {"message": "Colonne supprimée avec succès"}
+
+
+@router.post(
+    "/reorder",
+    response_model=list[ColonneRead],
+    summary="Réordonner les colonnes",
+    description="Met à jour l'ordre des colonnes.",
+)
+async def reorder_colonnes(
+    data: ColonneReorderRequest,
+    current_user: CurrentEditor,
+    db: Session = Depends(get_db),
+):
+    """Reorder multiple columns at once."""
+    updated_colonnes = []
+
+    for item in data.colonnes:
+        colonne = db.query(ColonneDynamique).filter(ColonneDynamique.id == item.id).first()
+
+        if colonne:
+            colonne.ordre = item.ordre
+            updated_colonnes.append(colonne)
+
+    db.commit()
+
+    # Refresh all
+    result = []
+    for colonne in updated_colonnes:
+        db.refresh(colonne)
+        result.append(ColonneRead(
+            id=colonne.id,
+            cle=colonne.cle,
+            label=colonne.label,
+            applicable_a=colonne.applicable_a,
+            type_donnee=colonne.type_donnee,
+            formule=colonne.formule,
+            largeur=colonne.largeur,
+            ordre=colonne.ordre,
+            est_obligatoire=colonne.est_obligatoire,
+            est_editable=colonne.est_editable,
+            est_visible=colonne.est_visible,
+            est_active=colonne.est_active,
+            est_systeme=colonne.est_systeme,
+            description=colonne.description,
+        ))
+
+    return result
