@@ -14,7 +14,7 @@ from app.api.deps import CurrentAdmin, get_db
 from app.models.annexes import AuditLog, StatistiqueVisite
 from app.models.comptabilite import DonneesDepenses, DonneesRecettes, Exercice
 from app.models.documents import Document
-from app.models.enums import ActionAudit
+from app.models.enums import ActionAudit, StatutProjetMinier
 from app.models.geographie import Commune, Province, Region
 from app.models.projets_miniers import ProjetMinier, RevenuMinier
 from app.models.utilisateurs import Utilisateur
@@ -40,65 +40,77 @@ async def dashboard_stats(
 ):
     """
     Get admin dashboard statistics.
+    Returns flat structure expected by frontend.
     """
     today = date.today()
-    thirty_days_ago = today - timedelta(days=30)
-    seven_days_ago = today - timedelta(days=7)
+    current_year = today.year
+    last_year = current_year - 1
 
-    # User stats
-    total_users = db.query(func.count(Utilisateur.id)).scalar()
-    active_users = db.query(func.count(Utilisateur.id)).filter(Utilisateur.actif == True).scalar()
+    # Communes stats
+    total_communes = db.query(func.count(Commune.id)).scalar() or 0
 
-    # Content stats
-    total_exercices = db.query(func.count(Exercice.id)).scalar()
-    exercices_clotures = db.query(func.count(Exercice.id)).filter(Exercice.cloture == True).scalar()
-    total_documents = db.query(func.count(Document.id)).scalar()
+    # Communes avec données pour l'année en cours
+    communes_avec_donnees = db.query(func.count(func.distinct(DonneesRecettes.commune_id))).join(
+        Exercice,
+        DonneesRecettes.exercice_id == Exercice.id
+    ).filter(
+        Exercice.annee == current_year
+    ).scalar() or 0
 
-    # Financial totals (recouvrement pour recettes, mandat_admis pour dépenses)
-    total_recettes = db.query(func.sum(DonneesRecettes.recouvrement)).scalar() or 0
+    # Si pas de données pour l'année en cours, chercher l'année précédente
+    if communes_avec_donnees == 0:
+        communes_avec_donnees = db.query(func.count(func.distinct(DonneesRecettes.commune_id))).join(
+            Exercice,
+            DonneesRecettes.exercice_id == Exercice.id
+        ).filter(
+            Exercice.annee == last_year
+        ).scalar() or 0
+
+    # Financial totals - utiliser or_admis pour recettes, mandat_admis pour dépenses
+    total_recettes = db.query(func.sum(DonneesRecettes.or_admis)).scalar() or 0
     total_depenses = db.query(func.sum(DonneesDepenses.mandat_admis)).scalar() or 0
 
-    # Visit stats
-    visites_30j = db.query(func.sum(StatistiqueVisite.nb_visites)).filter(
-        StatistiqueVisite.date_visite >= thirty_days_ago
+    # Recettes/dépenses année précédente pour calculer l'évolution
+    recettes_last_year = db.query(func.sum(DonneesRecettes.or_admis)).join(
+        Exercice,
+        DonneesRecettes.exercice_id == Exercice.id
+    ).filter(
+        Exercice.annee == last_year
     ).scalar() or 0
 
-    visites_7j = db.query(func.sum(StatistiqueVisite.nb_visites)).filter(
-        StatistiqueVisite.date_visite >= seven_days_ago
+    depenses_last_year = db.query(func.sum(DonneesDepenses.mandat_admis)).join(
+        Exercice,
+        DonneesDepenses.exercice_id == Exercice.id
+    ).filter(
+        Exercice.annee == last_year
     ).scalar() or 0
 
-    telechargements_30j = db.query(func.sum(StatistiqueVisite.nb_telechargements)).filter(
-        StatistiqueVisite.date_visite >= thirty_days_ago
+    # Calcul des évolutions (en pourcentage)
+    evolution_recettes = 0.0
+    if recettes_last_year > 0:
+        evolution_recettes = ((float(total_recettes) - float(recettes_last_year)) / float(recettes_last_year)) * 100
+
+    evolution_depenses = 0.0
+    if depenses_last_year > 0:
+        evolution_depenses = ((float(total_depenses) - float(depenses_last_year)) / float(depenses_last_year)) * 100
+
+    # Projets miniers actifs (en exploration ou exploitation)
+    projets_miniers_actifs = db.query(func.count(ProjetMinier.id)).filter(
+        ProjetMinier.statut.in_([StatutProjetMinier.EXPLORATION, StatutProjetMinier.EXPLOITATION])
     ).scalar() or 0
 
-    # Recent activity
-    recent_audit = db.query(func.count(AuditLog.id)).filter(
-        AuditLog.created_at >= datetime.utcnow() - timedelta(days=7)
-    ).scalar()
+    # Projets année précédente pour évolution (approximation)
+    evolution_projets = 0.0
 
     return {
-        "utilisateurs": {
-            "total": total_users,
-            "actifs": active_users,
-        },
-        "contenu": {
-            "exercices_total": total_exercices,
-            "exercices_clotures": exercices_clotures,
-            "documents": total_documents,
-        },
-        "finances": {
-            "recettes_totales": float(total_recettes),
-            "depenses_totales": float(total_depenses),
-            "solde_global": float(total_recettes - total_depenses),
-        },
-        "visites": {
-            "dernieres_30_jours": visites_30j,
-            "dernieres_7_jours": visites_7j,
-            "telechargements_30_jours": telechargements_30j,
-        },
-        "activite": {
-            "modifications_7_jours": recent_audit,
-        },
+        "communes_avec_donnees": communes_avec_donnees,
+        "communes_total": total_communes,
+        "total_recettes": float(total_recettes),
+        "total_depenses": float(total_depenses),
+        "projets_miniers_actifs": projets_miniers_actifs,
+        "evolution_recettes": round(evolution_recettes, 1),
+        "evolution_depenses": round(evolution_depenses, 1),
+        "evolution_projets": evolution_projets,
     }
 
 
@@ -172,9 +184,12 @@ async def activite_recente(
             "id": str(log.id),
             "action": log.action.value if hasattr(log.action, 'value') else str(log.action),
             "table_name": log.table_name,
+            "record_id": str(log.record_id) if log.record_id else None,
             "description": f"{log.action.value if hasattr(log.action, 'value') else log.action} sur {log.table_name}",
             "user_id": str(log.utilisateur_id) if log.utilisateur_id else None,
-            "user_nom": log.utilisateur.nom if log.utilisateur else "Système",
+            "user_name": log.utilisateur.nom if log.utilisateur else "Système",
+            "old_values": log.old_values,
+            "new_values": log.new_values,
             "created_at": log.created_at.isoformat(),
         }
         for log in logs
