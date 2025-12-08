@@ -172,6 +172,7 @@ class TableauComplet(BaseSchema):
     commune_code: str
     region_nom: str
     province_nom: str
+    exercice_id: int
     exercice_annee: int
     exercice_cloture: bool
     # Tables

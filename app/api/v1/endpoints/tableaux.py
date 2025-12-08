@@ -496,6 +496,7 @@ async def get_tableau_complet(
         commune_code=commune.code,
         region_nom=commune.region.nom,
         province_nom=commune.region.province.nom,
+        exercice_id=exercice.id,
         exercice_annee=exercice_annee,
         exercice_cloture=exercice.cloture,
         recettes=tableau_recettes,
