@@ -20,6 +20,7 @@ email-validator>=2.1.0
 # Sécurité et authentification
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
+bcrypt==4.0.1  # Version compatible avec passlib
 python-dotenv>=1.0.0
 
 # Logging
