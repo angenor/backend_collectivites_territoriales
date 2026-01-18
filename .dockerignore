@@ -1,0 +1,64 @@
+# Virtual environment
+.venv
+venv
+env
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Environment files (use docker-compose env vars)
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+
+# Test files
+.pytest_cache
+.coverage
+htmlcov
+coverage.xml
+*.cover
+.hypothesis
+tests/
+
+# Documentation
+*.md
+!README.md
+bank/
+
+# Uploads (mounted as volume)
+uploads/
+
+# Docker files (avoid recursion)
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Development scripts
+scripts/
+
+# Mypy cache
+.mypy_cache
+
+# Distribution
+dist/
+build/
+*.egg-info/
