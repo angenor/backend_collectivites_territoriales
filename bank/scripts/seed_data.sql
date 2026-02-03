@@ -103,16 +103,15 @@ INSERT INTO projets_communes (projet_id, commune_id, pourcentage_territoire, dat
 -- 5. UTILISATEURS DE DEMONSTRATION
 -- =============================================================================
 
--- Mot de passe: 'admin123' -> hash bcrypt (a generer avec passlib)
--- Note: Le hash ci-dessous est un exemple, a remplacer par un vrai hash bcrypt
+-- Mot de passe: 'admin123' -> hash bcrypt genere avec passlib
 INSERT INTO utilisateurs (email, mot_de_passe_hash, nom, prenom, role, actif, email_verifie) VALUES
-('admin@transparency.mg', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.aO.S5S.VKIGFUK', 'Administrateur', 'TI-MG', 'admin', TRUE, TRUE),
-('editeur@transparency.mg', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.aO.S5S.VKIGFUK', 'Editeur', 'TI-MG', 'editeur', TRUE, TRUE),
-('lecteur@transparency.mg', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.aO.S5S.VKIGFUK', 'Visiteur', 'Public', 'lecteur', TRUE, TRUE);
+('admin@transparency.mg', '$2b$12$XYd/1budbWgSrWbeTMO0GOTfEarX/pvQMlvejeAnZTR2FNSV1b/XS', 'Administrateur', 'TI-MG', 'admin', TRUE, TRUE),
+('editeur@transparency.mg', '$2b$12$XYd/1budbWgSrWbeTMO0GOTfEarX/pvQMlvejeAnZTR2FNSV1b/XS', 'Editeur', 'TI-MG', 'editeur', TRUE, TRUE),
+('lecteur@transparency.mg', '$2b$12$XYd/1budbWgSrWbeTMO0GOTfEarX/pvQMlvejeAnZTR2FNSV1b/XS', 'Visiteur', 'Public', 'lecteur', TRUE, TRUE);
 
 -- Utilisateur lie a une commune
 INSERT INTO utilisateurs (email, mot_de_passe_hash, nom, prenom, role, commune_id, actif, email_verifie) VALUES
-('maire.fortdauphin@commune.mg', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.aO.S5S.VKIGFUK',
+('maire.fortdauphin@commune.mg', '$2b$12$XYd/1budbWgSrWbeTMO0GOTfEarX/pvQMlvejeAnZTR2FNSV1b/XS',
  'Razafy', 'Jean',
  'commune',
  (SELECT id FROM communes WHERE nom = 'Taolagnaro (Fort-Dauphin)'),
