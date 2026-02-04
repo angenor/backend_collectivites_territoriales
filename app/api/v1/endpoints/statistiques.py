@@ -40,15 +40,15 @@ async def global_stats(
     # Fiscal years
     nb_exercices = db.query(func.count(Exercice.id)).scalar()
     exercices_publies = db.query(func.count(Exercice.id)).filter(
-        Exercice.publie == True
+        Exercice.cloture == True
     ).scalar()
 
     # Financial data
-    total_recettes = db.query(func.sum(DonneesRecettes.realisation)).scalar() or 0
-    total_depenses = db.query(func.sum(DonneesDepenses.realisation)).scalar() or 0
+    total_recettes = db.query(func.sum(DonneesRecettes.recouvrement)).scalar() or 0
+    total_depenses = db.query(func.sum(DonneesDepenses.paiement)).scalar() or 0
 
     # Mining revenues
-    total_revenus_miniers = db.query(func.sum(RevenuMinier.montant)).scalar() or 0
+    total_revenus_miniers = db.query(func.sum(RevenuMinier.montant_recu)).scalar() or 0
     nb_projets_miniers = db.query(func.count(ProjetMinier.id)).scalar()
 
     # Documents
@@ -113,23 +113,23 @@ async def exercice_stats(
     ).scalar()
 
     # Totals
-    total_recettes = db.query(func.sum(DonneesRecettes.realisation)).filter(
+    total_recettes = db.query(func.sum(DonneesRecettes.recouvrement)).filter(
         DonneesRecettes.exercice_id == exercice.id
     ).scalar() or 0
 
-    total_depenses = db.query(func.sum(DonneesDepenses.realisation)).filter(
+    total_depenses = db.query(func.sum(DonneesDepenses.paiement)).filter(
         DonneesDepenses.exercice_id == exercice.id
     ).scalar() or 0
 
     # Mining revenues for this year
-    revenus_miniers = db.query(func.sum(RevenuMinier.montant)).filter(
+    revenus_miniers = db.query(func.sum(RevenuMinier.montant_recu)).filter(
         RevenuMinier.exercice_id == exercice.id
     ).scalar() or 0
 
     return {
         "annee": annee,
         "existe": True,
-        "publie": exercice.publie,
+        "publie": exercice.cloture,
         "cloture": exercice.cloture,
         "communes_avec_donnees": {
             "recettes": communes_avec_recettes,
@@ -167,10 +167,10 @@ async def region_stats(
     commune_ids = [c.id for c in region.communes]
 
     # Base query filters
-    recettes_query = db.query(func.sum(DonneesRecettes.realisation)).filter(
+    recettes_query = db.query(func.sum(DonneesRecettes.recouvrement)).filter(
         DonneesRecettes.commune_id.in_(commune_ids)
     )
-    depenses_query = db.query(func.sum(DonneesDepenses.realisation)).filter(
+    depenses_query = db.query(func.sum(DonneesDepenses.paiement)).filter(
         DonneesDepenses.commune_id.in_(commune_ids)
     )
 
@@ -213,16 +213,16 @@ async def evolution_stats(
     """
     # Get all published exercises
     exercices = db.query(Exercice).filter(
-        Exercice.publie == True
+        Exercice.cloture == True
     ).order_by(Exercice.annee).all()
 
     evolution = []
 
     for exercice in exercices:
-        recettes_query = db.query(func.sum(DonneesRecettes.realisation)).filter(
+        recettes_query = db.query(func.sum(DonneesRecettes.recouvrement)).filter(
             DonneesRecettes.exercice_id == exercice.id
         )
-        depenses_query = db.query(func.sum(DonneesDepenses.realisation)).filter(
+        depenses_query = db.query(func.sum(DonneesDepenses.paiement)).filter(
             DonneesDepenses.exercice_id == exercice.id
         )
 

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import DbSession, get_db
 from app.models.geographie import Commune, Province, Region
+from app.models.comptabilite import DonneesRecettes, DonneesDepenses
 from app.models.enums import TypeCommune
 from sqlalchemy import func
 
@@ -29,6 +30,34 @@ from app.schemas.geographie import (
 )
 
 router = APIRouter(prefix="/geo", tags=["Géographie"])
+
+
+def _get_commune_ca_counts(db: Session) -> dict[int, int]:
+    """
+    Get the number of distinct exercices with data for each commune.
+    Returns a dict {commune_id: nb_comptes_administratifs}.
+    """
+    # Collect (commune_id, exercice_id) pairs from both tables
+    pairs: set[tuple[int, int]] = set()
+
+    for cid, eid in db.query(
+        DonneesRecettes.commune_id,
+        DonneesRecettes.exercice_id,
+    ).distinct().all():
+        pairs.add((cid, eid))
+
+    for cid, eid in db.query(
+        DonneesDepenses.commune_id,
+        DonneesDepenses.exercice_id,
+    ).distinct().all():
+        pairs.add((cid, eid))
+
+    # Count distinct exercices per commune
+    counts: dict[int, int] = {}
+    for commune_id, _ in pairs:
+        counts[commune_id] = counts.get(commune_id, 0) + 1
+
+    return counts
 
 
 # =====================
@@ -54,13 +83,20 @@ async def list_provinces(
         joinedload(Province.regions).joinedload(Region.communes)
     ).order_by(Province.nom).all()
 
+    ca_counts = _get_commune_ca_counts(db)
+
     return [
         ProvinceWithStats(
             id=p.id,
             code=p.code,
             nom=p.nom,
             nb_regions=len(p.regions),
-            nb_communes=sum(len(r.communes) for r in p.regions)
+            nb_communes=sum(len(r.communes) for r in p.regions),
+            nb_comptes_administratifs=sum(
+                ca_counts.get(c.id, 0)
+                for r in p.regions
+                for c in r.communes
+            )
         )
         for p in provinces
     ]
@@ -125,6 +161,8 @@ async def list_regions(
 
     regions = query.order_by(Region.nom).all()
 
+    ca_counts = _get_commune_ca_counts(db)
+
     return [
         RegionWithStats(
             id=r.id,
@@ -132,7 +170,10 @@ async def list_regions(
             nom=r.nom,
             province_id=r.province_id,
             nb_communes=len(r.communes),
-            province_nom=r.province.nom if r.province else None
+            province_nom=r.province.nom if r.province else None,
+            nb_comptes_administratifs=sum(
+                ca_counts.get(c.id, 0) for c in r.communes
+            )
         )
         for r in regions
     ]
@@ -227,6 +268,8 @@ async def list_communes(
 
     communes = query.order_by(Commune.nom).offset(offset).limit(limit).all()
 
+    ca_counts = _get_commune_ca_counts(db)
+
     return [
         CommuneWithStats(
             id=c.id,
@@ -236,7 +279,7 @@ async def list_communes(
             region_id=c.region_id,
             region_nom=c.region.nom if c.region else None,
             province_nom=c.region.province.nom if c.region and c.region.province else None,
-            nb_comptes_administratifs=0  # TODO: Add actual count when needed
+            nb_comptes_administratifs=ca_counts.get(c.id, 0)
         )
         for c in communes
     ]

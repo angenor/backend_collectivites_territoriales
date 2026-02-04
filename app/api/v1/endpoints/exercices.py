@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import DbSession, get_db
-from app.models.comptabilite import Exercice
+from app.models.comptabilite import DonneesDepenses, DonneesRecettes, Exercice
 from app.schemas.comptabilite import ExerciceList, ExerciceRead
 
 router = APIRouter(prefix="/exercices", tags=["Exercices"])
@@ -99,6 +99,43 @@ async def list_available_years(
     ).all()
 
     return [e.annee for e in exercices]
+
+
+@router.get(
+    "/years-for-commune",
+    response_model=list[int],
+    summary="Années avec données pour une commune",
+    description="Retourne les années d'exercice ayant des données financières pour une commune donnée."
+)
+async def list_years_for_commune(
+    commune_id: int = Query(..., description="ID de la commune"),
+    db: Session = Depends(get_db),
+):
+    """
+    Get list of years that have financial data for a specific commune.
+
+    Returns years (desc) where DonneesRecettes or DonneesDepenses exist.
+    """
+    exercice_ids: set[int] = set()
+
+    for (eid,) in db.query(DonneesRecettes.exercice_id).filter(
+        DonneesRecettes.commune_id == commune_id
+    ).distinct().all():
+        exercice_ids.add(eid)
+
+    for (eid,) in db.query(DonneesDepenses.exercice_id).filter(
+        DonneesDepenses.commune_id == commune_id
+    ).distinct().all():
+        exercice_ids.add(eid)
+
+    if not exercice_ids:
+        return []
+
+    years = db.query(Exercice.annee).filter(
+        Exercice.id.in_(exercice_ids)
+    ).order_by(Exercice.annee.desc()).all()
+
+    return [e.annee for e in years]
 
 
 @router.get(

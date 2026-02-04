@@ -52,6 +52,7 @@ class ProvinceWithStats(BaseSchema):
     nom: str
     nb_regions: int = 0
     nb_communes: int = 0
+    nb_comptes_administratifs: int = 0
 
 
 class ProvinceWithRegions(ProvinceRead):
@@ -103,6 +104,7 @@ class RegionWithStats(BaseSchema):
     province_id: int
     nb_communes: int = 0
     province_nom: Optional[str] = None
+    nb_comptes_administratifs: int = 0
 
 
 class RegionWithProvince(RegionRead):
