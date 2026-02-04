@@ -30,6 +30,7 @@ DROP TABLE IF EXISTS revenus_miniers CASCADE;
 DROP TABLE IF EXISTS projets_communes CASCADE;
 DROP TABLE IF EXISTS projets_miniers CASCADE;
 DROP TABLE IF EXISTS societes_minieres CASCADE;
+DROP TABLE IF EXISTS comptes_administratifs CASCADE;
 DROP TABLE IF EXISTS donnees_depenses CASCADE;
 DROP TABLE IF EXISTS donnees_recettes CASCADE;
 DROP TABLE IF EXISTS exercices CASCADE;
@@ -195,6 +196,25 @@ COMMENT ON COLUMN exercices.annee IS 'Annee fiscale (ex: 2024)';
 COMMENT ON COLUMN exercices.cloture IS 'True si lexercice est cloture et non modifiable';
 
 CREATE INDEX idx_exercices_annee ON exercices(annee);
+
+-- Comptes administratifs (enregistrement commune/exercice)
+CREATE TABLE comptes_administratifs (
+    id SERIAL PRIMARY KEY,
+    commune_id INTEGER NOT NULL REFERENCES communes(id) ON DELETE CASCADE,
+    exercice_id INTEGER NOT NULL REFERENCES exercices(id) ON DELETE CASCADE,
+    notes TEXT,
+    created_by INTEGER REFERENCES utilisateurs(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_compte_administratif_commune_exercice UNIQUE (commune_id, exercice_id)
+);
+
+COMMENT ON TABLE comptes_administratifs IS 'Comptes administratifs enregistres (paire commune/exercice)';
+COMMENT ON COLUMN comptes_administratifs.notes IS 'Notes optionnelles sur le compte administratif';
+COMMENT ON COLUMN comptes_administratifs.created_by IS 'Utilisateur ayant cree le compte';
+
+CREATE INDEX idx_compte_admin_commune ON comptes_administratifs(commune_id);
+CREATE INDEX idx_compte_admin_exercice ON comptes_administratifs(exercice_id);
 
 -- Donnees RECETTES par commune/exercice/compte
 CREATE TABLE donnees_recettes (
@@ -1018,6 +1038,10 @@ CREATE TRIGGER update_plan_comptable_updated_at
 
 CREATE TRIGGER update_exercices_updated_at
     BEFORE UPDATE ON exercices
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_comptes_administratifs_updated_at
+    BEFORE UPDATE ON comptes_administratifs
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_donnees_recettes_updated_at

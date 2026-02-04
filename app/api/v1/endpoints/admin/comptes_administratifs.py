@@ -3,15 +3,15 @@ Admin API endpoints for Comptes Administratifs.
 Virtual view combining Commune + Exercice + financial data.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
-from app.models.comptabilite import DonneesDepenses, DonneesRecettes, Exercice, PlanComptable
+from app.api.deps import CurrentEditor, get_db
+from app.models.comptabilite import CompteAdministratif as CompteAdministratifModel, DonneesDepenses, DonneesRecettes, Exercice, PlanComptable
 from app.models.geographie import Commune, Region, Province
 
 router = APIRouter(prefix="/comptes-administratifs", tags=["Admin - Comptes Administratifs"])
@@ -106,8 +106,138 @@ def _get_statut(exercice: Exercice, has_data: bool) -> str:
 
 
 # ============================================================================
+# CREATE SCHEMA
+# ============================================================================
+
+class CompteAdministratifCreate(BaseModel):
+    commune_id: int
+    annee: int
+    notes: Optional[str] = None
+
+
+# ============================================================================
 # ENDPOINTS
 # ============================================================================
+
+@router.post(
+    "",
+    response_model=CompteAdministratifRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Créer un compte administratif",
+    description="Crée un nouveau compte administratif pour une commune et une année.",
+)
+async def create_compte_administratif(
+    data: CompteAdministratifCreate,
+    current_user: CurrentEditor,
+    db: Session = Depends(get_db),
+):
+    """
+    Create a new compte administratif (commune + exercice pair).
+    If the exercice for the given year doesn't exist, it is created automatically.
+    """
+    # Validate commune
+    commune = db.query(Commune).filter(Commune.id == data.commune_id).first()
+    if not commune:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Commune non trouvée"
+        )
+
+    # Find or create exercice for the year
+    exercice = db.query(Exercice).filter(Exercice.annee == data.annee).first()
+    if not exercice:
+        exercice = Exercice(
+            annee=data.annee,
+            libelle=f"Exercice {data.annee}",
+            date_debut=date(data.annee, 1, 1),
+            date_fin=date(data.annee, 12, 31),
+            cloture=False,
+        )
+        db.add(exercice)
+        db.commit()
+        db.refresh(exercice)
+
+    if exercice.cloture:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="L'exercice est clôturé, impossible de créer un compte"
+        )
+
+    # Check if already registered in the comptes_administratifs table
+    existing = (
+        db.query(CompteAdministratifModel)
+        .filter(
+            CompteAdministratifModel.commune_id == data.commune_id,
+            CompteAdministratifModel.exercice_id == exercice.id,
+        )
+        .first()
+    )
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Un compte administratif existe déjà pour cette commune et cet exercice"
+        )
+
+    # Persist into comptes_administratifs table
+    compte_row = CompteAdministratifModel(
+        commune_id=data.commune_id,
+        exercice_id=exercice.id,
+        notes=data.notes,
+        created_by=current_user.id,
+    )
+    db.add(compte_row)
+    db.commit()
+    db.refresh(compte_row)
+
+    # Check if financial data already exists for this pair
+    has_data = (
+        db.query(DonneesRecettes)
+        .filter(
+            DonneesRecettes.commune_id == data.commune_id,
+            DonneesRecettes.exercice_id == exercice.id,
+        )
+        .count()
+        + db.query(DonneesDepenses)
+        .filter(
+            DonneesDepenses.commune_id == data.commune_id,
+            DonneesDepenses.exercice_id == exercice.id,
+        )
+        .count()
+    ) > 0
+
+    # Get region and province
+    region = db.query(Region).filter(Region.id == commune.region_id).first()
+    province = db.query(Province).filter(Province.id == region.province_id).first() if region else None
+
+    compte_id = _generate_compte_id(commune.id, exercice.id)
+
+    return CompteAdministratifRead(
+        id=compte_id,
+        commune_id=str(commune.id),
+        region_id=str(region.id) if region else None,
+        province_id=str(province.id) if province else None,
+        annee=exercice.annee,
+        statut=_get_statut(exercice, has_data),
+        notes=data.notes,
+        created_at=exercice.created_at or datetime.now(),
+        updated_at=exercice.updated_at or datetime.now(),
+        commune=CommuneInfo(
+            id=str(commune.id),
+            code=commune.code,
+            nom=commune.nom
+        ),
+        region=RegionInfo(
+            id=str(region.id),
+            code=region.code,
+            nom=region.nom
+        ) if region else None,
+        province=ProvinceInfo(
+            id=str(province.id),
+            code=province.code,
+            nom=province.nom
+        ) if province else None,
+    )
+
 
 @router.get(
     "",
@@ -141,12 +271,20 @@ async def list_comptes_administratifs(
         DonneesDepenses.exercice_id.label('exercice_id')
     ).distinct().all()
 
+    # Also include registered comptes from the comptes_administratifs table
+    registered_pairs = db.query(
+        CompteAdministratifModel.commune_id,
+        CompteAdministratifModel.exercice_id,
+    ).all()
+
     # Combiner les paires uniques
     all_pairs = set()
     for r in recettes_pairs:
         all_pairs.add((r.commune_id, r.exercice_id))
     for d in depenses_pairs:
         all_pairs.add((d.commune_id, d.exercice_id))
+    for rp in registered_pairs:
+        all_pairs.add((rp.commune_id, rp.exercice_id))
 
     # Si pas de données, retourner liste vide
     if not all_pairs:

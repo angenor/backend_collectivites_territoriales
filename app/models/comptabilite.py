@@ -391,3 +391,48 @@ class ColonneDynamique(Base, TimestampMixin):
 
     def __repr__(self) -> str:
         return f"<ColonneDynamique(cle='{self.cle}', label='{self.label}')>"
+
+
+class CompteAdministratif(Base, TimestampMixin):
+    """
+    Enregistrement persistant d'un compte administratif (commune + exercice).
+    Permet de suivre les comptes créés même sans données financières.
+    """
+    __tablename__ = "comptes_administratifs"
+    __table_args__ = (
+        UniqueConstraint(
+            "commune_id", "exercice_id",
+            name="uk_compte_administratif_commune_exercice"
+        ),
+        Index("idx_compte_admin_commune", "commune_id"),
+        Index("idx_compte_admin_exercice", "exercice_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    commune_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("communes.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    exercice_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("exercices.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_by: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("utilisateurs.id", ondelete="SET NULL"),
+        nullable=True
+    )
+
+    # Relations
+    commune: Mapped["Commune"] = relationship("Commune")
+    exercice: Mapped["Exercice"] = relationship("Exercice")
+    createur: Mapped[Optional["Utilisateur"]] = relationship(
+        "Utilisateur",
+        foreign_keys=[created_by]
+    )
+
+    def __repr__(self) -> str:
+        return f"<CompteAdministratif(commune_id={self.commune_id}, exercice_id={self.exercice_id})>"
