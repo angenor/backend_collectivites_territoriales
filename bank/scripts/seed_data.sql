@@ -118,15 +118,32 @@ INSERT INTO utilisateurs (email, mot_de_passe_hash, nom, prenom, role, commune_i
  TRUE, TRUE);
 
 -- =============================================================================
--- 6. REVENUS MINIERS (Donnees de demonstration)
+-- 6. COMPTES ADMINISTRATIFS (paires commune/exercice)
+-- =============================================================================
+
+-- Fort-Dauphin: comptes 2022, 2023, 2024
+INSERT INTO comptes_administratifs (commune_id, exercice_id, notes)
+SELECT c.id, e.id, 'Compte administratif ' || e.annee || ' - ' || c.nom
+FROM communes c CROSS JOIN exercices e
+WHERE c.nom = 'Taolagnaro (Fort-Dauphin)' AND e.annee IN (2022, 2023, 2024);
+
+-- Moramanga: comptes 2022, 2023, 2024
+INSERT INTO comptes_administratifs (commune_id, exercice_id, notes)
+SELECT c.id, e.id, 'Compte administratif ' || e.annee || ' - ' || c.nom
+FROM communes c CROSS JOIN exercices e
+WHERE c.nom = 'Moramanga' AND e.annee IN (2022, 2023, 2024);
+
+-- =============================================================================
+-- 7. REVENUS MINIERS (Donnees de demonstration)
 -- =============================================================================
 
 -- Revenus miniers pour Fort-Dauphin (QMM)
-INSERT INTO revenus_miniers (commune_id, exercice_id, projet_id, type_revenu, montant_prevu, montant_recu, date_reception, compte_code, commentaire)
+INSERT INTO revenus_miniers (commune_id, exercice_id, projet_id, compte_administratif_id, type_revenu, montant_prevu, montant_recu, date_reception, compte_code, commentaire)
 SELECT
     c.id,
     e.id,
     p.id,
+    ca.id,
     'ristourne_miniere',
     CASE e.annee
         WHEN 2022 THEN 450000000
@@ -150,16 +167,18 @@ SELECT
 FROM communes c
 CROSS JOIN exercices e
 CROSS JOIN projets_miniers p
+INNER JOIN comptes_administratifs ca ON ca.commune_id = c.id AND ca.exercice_id = e.id
 WHERE c.nom = 'Taolagnaro (Fort-Dauphin)'
   AND p.nom LIKE 'Projet QMM%'
   AND e.annee IN (2022, 2023, 2024);
 
 -- Revenus miniers pour Moramanga (Ambatovy)
-INSERT INTO revenus_miniers (commune_id, exercice_id, projet_id, type_revenu, montant_prevu, montant_recu, date_reception, compte_code, commentaire)
+INSERT INTO revenus_miniers (commune_id, exercice_id, projet_id, compte_administratif_id, type_revenu, montant_prevu, montant_recu, date_reception, compte_code, commentaire)
 SELECT
     c.id,
     e.id,
     p.id,
+    ca.id,
     'ristourne_miniere',
     CASE e.annee
         WHEN 2022 THEN 380000000
@@ -183,12 +202,13 @@ SELECT
 FROM communes c
 CROSS JOIN exercices e
 CROSS JOIN projets_miniers p
+INNER JOIN comptes_administratifs ca ON ca.commune_id = c.id AND ca.exercice_id = e.id
 WHERE c.nom = 'Moramanga'
   AND p.nom = 'Projet Ambatovy'
   AND e.annee IN (2022, 2023, 2024);
 
 -- =============================================================================
--- 7. DONNEES RECETTES DE DEMONSTRATION (Commune Fort-Dauphin, 2023)
+-- 8. DONNEES RECETTES DE DEMONSTRATION (Commune Fort-Dauphin, 2023)
 -- =============================================================================
 
 -- Quelques lignes de recettes pour Fort-Dauphin exercice 2023
@@ -268,7 +288,7 @@ WHERE c.nom = 'Taolagnaro (Fort-Dauphin)'
   AND pc.niveau = 3;
 
 -- =============================================================================
--- 8. DONNEES DEPENSES DE DEMONSTRATION (Commune Fort-Dauphin, 2023)
+-- 9. DONNEES DEPENSES DE DEMONSTRATION (Commune Fort-Dauphin, 2023)
 -- =============================================================================
 
 INSERT INTO donnees_depenses (commune_id, exercice_id, compte_code, programme, budget_primitif, budget_additionnel, modifications, previsions_definitives, engagement, mandat_admis, paiement, reste_a_payer)
@@ -371,7 +391,7 @@ WHERE c.nom = 'Taolagnaro (Fort-Dauphin)'
   AND pc.niveau = 3;
 
 -- =============================================================================
--- 9. ABONNES NEWSLETTER
+-- 10. ABONNES NEWSLETTER
 -- =============================================================================
 
 INSERT INTO newsletter_abonnes (email, nom, actif) VALUES
@@ -381,7 +401,7 @@ INSERT INTO newsletter_abonnes (email, nom, actif) VALUES
 ('journaliste@media.mg', 'Journaliste Local', TRUE);
 
 -- =============================================================================
--- 10. STATISTIQUES DE VISITES (Exemple)
+-- 11. STATISTIQUES DE VISITES (Exemple)
 -- =============================================================================
 
 INSERT INTO statistiques_visites (date_visite, page, commune_id, nb_visites, nb_telechargements)
@@ -411,6 +431,8 @@ UNION ALL
 SELECT 'Projets-Communes', COUNT(*) FROM projets_communes
 UNION ALL
 SELECT 'Utilisateurs', COUNT(*) FROM utilisateurs
+UNION ALL
+SELECT 'Comptes administratifs', COUNT(*) FROM comptes_administratifs
 UNION ALL
 SELECT 'Revenus miniers', COUNT(*) FROM revenus_miniers
 UNION ALL

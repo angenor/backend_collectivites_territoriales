@@ -198,12 +198,13 @@ COMMENT ON COLUMN exercices.cloture IS 'True si lexercice est cloture et non mod
 CREATE INDEX idx_exercices_annee ON exercices(annee);
 
 -- Comptes administratifs (enregistrement commune/exercice)
+-- Note: la FK created_by -> utilisateurs est ajoutee apres creation de la table utilisateurs
 CREATE TABLE comptes_administratifs (
     id SERIAL PRIMARY KEY,
     commune_id INTEGER NOT NULL REFERENCES communes(id) ON DELETE CASCADE,
     exercice_id INTEGER NOT NULL REFERENCES exercices(id) ON DELETE CASCADE,
     notes TEXT,
-    created_by INTEGER REFERENCES utilisateurs(id) ON DELETE SET NULL,
+    created_by INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uk_compte_administratif_commune_exercice UNIQUE (commune_id, exercice_id)
@@ -441,6 +442,12 @@ ALTER TABLE donnees_recettes
 ALTER TABLE donnees_depenses
     ADD CONSTRAINT fk_depenses_valide_par
     FOREIGN KEY (valide_par) REFERENCES utilisateurs(id) ON DELETE SET NULL;
+
+-- Ajout de la FK comptes_administratifs.created_by -> utilisateurs
+-- (definie ici car utilisateurs est cree apres comptes_administratifs)
+ALTER TABLE comptes_administratifs
+    ADD CONSTRAINT fk_compte_admin_created_by
+    FOREIGN KEY (created_by) REFERENCES utilisateurs(id) ON DELETE SET NULL;
 
 -- Sessions (pour JWT refresh tokens)
 CREATE TABLE sessions (
