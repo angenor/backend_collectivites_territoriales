@@ -223,7 +223,7 @@ async def get_projet_resume(
     return ResumeProjetMinier(
         projet_id=projet.id,
         projet_nom=projet.nom,
-        societe_nom=projet.societe.nom if projet.societe else None,
+        societe_nom=projet.societe.nom,
         type_minerai=projet.type_minerai,
         statut=projet.statut,
         nb_communes_impactees=len(projet.projets_communes),

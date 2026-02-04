@@ -433,6 +433,10 @@ class CompteAdministratif(Base, TimestampMixin):
         "Utilisateur",
         foreign_keys=[created_by]
     )
+    revenus_miniers: Mapped[List["RevenuMinier"]] = relationship(
+        "RevenuMinier",
+        back_populates="compte_administratif"
+    )
 
     def __repr__(self) -> str:
         return f"<CompteAdministratif(commune_id={self.commune_id}, exercice_id={self.exercice_id})>"

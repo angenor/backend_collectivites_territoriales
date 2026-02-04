@@ -11,7 +11,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import DbSession, get_db
-from app.models.comptabilite import Exercice
+from app.models.comptabilite import CompteAdministratif, Exercice
 from app.models.geographie import Commune, Region
 from app.models.projets_miniers import ProjetMinier, RevenuMinier
 from app.models.enums import TypeRevenuMinier
@@ -73,7 +73,9 @@ async def list_revenus_miniers(
     query = db.query(RevenuMinier).options(
         joinedload(RevenuMinier.commune),
         joinedload(RevenuMinier.exercice),
-        joinedload(RevenuMinier.projet)
+        joinedload(RevenuMinier.projet),
+        joinedload(RevenuMinier.compte),
+        joinedload(RevenuMinier.compte_administratif)
     )
 
     if commune_id:
@@ -104,14 +106,17 @@ async def list_revenus_miniers(
             date_reception=r.date_reception,
             reference_paiement=r.reference_paiement,
             compte_code=r.compte_code,
+            compte_administratif_id=r.compte_administratif_id,
             commentaire=r.commentaire,
             ecart=r.ecart,
             taux_realisation=r.taux_realisation,
             created_at=r.created_at,
             updated_at=r.updated_at,
-            commune_nom=r.commune.nom if r.commune else None,
-            exercice_annee=r.exercice.annee if r.exercice else None,
-            projet_nom=r.projet.nom if r.projet else None
+            commune_nom=r.commune.nom,
+            exercice_annee=r.exercice.annee,
+            projet_nom=r.projet.nom,
+            compte_intitule=r.compte.intitule if r.compte else None,
+            compte_administratif_label=f"{r.commune.nom} - {r.exercice.annee}"
         )
         for r in revenus
     ]

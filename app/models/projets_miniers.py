@@ -19,7 +19,7 @@ from app.models.enums import StatutProjetMinier, TypeRevenuMinier
 
 if TYPE_CHECKING:
     from app.models.geographie import Commune
-    from app.models.comptabilite import Exercice, PlanComptable
+    from app.models.comptabilite import Exercice, PlanComptable, CompteAdministratif
 
 
 class SocieteMiniere(Base, TimestampMixin):
@@ -63,10 +63,10 @@ class ProjetMinier(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     nom: Mapped[str] = mapped_column(String(200), nullable=False)
-    societe_id: Mapped[Optional[int]] = mapped_column(
+    societe_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("societes_minieres.id", ondelete="SET NULL"),
-        nullable=True
+        ForeignKey("societes_minieres.id", ondelete="RESTRICT"),
+        nullable=False
     )
     type_minerai: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     statut: Mapped[Optional[StatutProjetMinier]] = mapped_column(
@@ -78,7 +78,7 @@ class ProjetMinier(Base, TimestampMixin):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Relations
-    societe: Mapped[Optional["SocieteMiniere"]] = relationship(
+    societe: Mapped["SocieteMiniere"] = relationship(
         "SocieteMiniere",
         back_populates="projets"
     )
@@ -124,9 +124,10 @@ class ProjetCommune(Base):
         ForeignKey("communes.id", ondelete="CASCADE"),
         nullable=False
     )
-    pourcentage_territoire: Mapped[Optional[Decimal]] = mapped_column(
+    pourcentage_territoire: Mapped[Decimal] = mapped_column(
         Numeric(5, 2),
-        nullable=True
+        nullable=False,
+        default=Decimal("100.00")
     )
     date_debut: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     date_fin: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
@@ -156,6 +157,7 @@ class RevenuMinier(Base, TimestampMixin):
         Index("idx_revenus_miniers_exercice", "exercice_id"),
         Index("idx_revenus_miniers_projet", "projet_id"),
         Index("idx_revenus_miniers_type", "type_revenu"),
+        Index("idx_revenus_miniers_compte_admin", "compte_administratif_id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -169,10 +171,10 @@ class RevenuMinier(Base, TimestampMixin):
         ForeignKey("exercices.id", ondelete="CASCADE"),
         nullable=False
     )
-    projet_id: Mapped[Optional[int]] = mapped_column(
+    projet_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("projets_miniers.id", ondelete="SET NULL"),
-        nullable=True
+        ForeignKey("projets_miniers.id", ondelete="RESTRICT"),
+        nullable=False
     )
     type_revenu: Mapped[TypeRevenuMinier] = mapped_column(
         Enum(TypeRevenuMinier, name="type_revenu_minier", create_type=False, values_callable=lambda x: [e.value for e in x]),
@@ -188,10 +190,15 @@ class RevenuMinier(Base, TimestampMixin):
     )
     date_reception: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     reference_paiement: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    compte_code: Mapped[Optional[str]] = mapped_column(
+    compte_code: Mapped[str] = mapped_column(
         String(10),
-        ForeignKey("plan_comptable.code", ondelete="SET NULL"),
-        nullable=True
+        ForeignKey("plan_comptable.code", ondelete="RESTRICT"),
+        nullable=False
+    )
+    compte_administratif_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("comptes_administratifs.id", ondelete="CASCADE"),
+        nullable=False
     )
     commentaire: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
@@ -204,12 +211,16 @@ class RevenuMinier(Base, TimestampMixin):
         "Exercice",
         back_populates="revenus_miniers"
     )
-    projet: Mapped[Optional["ProjetMinier"]] = relationship(
+    projet: Mapped["ProjetMinier"] = relationship(
         "ProjetMinier",
         back_populates="revenus_miniers"
     )
-    compte: Mapped[Optional["PlanComptable"]] = relationship(
+    compte: Mapped["PlanComptable"] = relationship(
         "PlanComptable",
+        back_populates="revenus_miniers"
+    )
+    compte_administratif: Mapped["CompteAdministratif"] = relationship(
+        "CompteAdministratif",
         back_populates="revenus_miniers"
     )
 

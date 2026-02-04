@@ -70,7 +70,7 @@ class SocieteMiniereWithProjets(SocieteMiniereRead):
 class ProjetMinierBase(BaseSchema):
     """Base schema for ProjetMinier."""
     nom: str = Field(..., min_length=1, max_length=200)
-    societe_id: Optional[int] = None
+    societe_id: int
     type_minerai: Optional[str] = Field(None, max_length=100)
     statut: Optional[StatutProjetMinier] = None
     date_debut_exploitation: Optional[date] = None
@@ -78,9 +78,17 @@ class ProjetMinierBase(BaseSchema):
     description: Optional[str] = None
 
 
+class ProjetCommuneNested(BaseSchema):
+    """Schema imbriqué pour commune + pourcentage lors de la création d'un projet."""
+    commune_id: int
+    pourcentage_territoire: Decimal = Field(..., ge=0, le=100)
+    date_debut: Optional[date] = None
+    date_fin: Optional[date] = None
+
+
 class ProjetMinierCreate(ProjetMinierBase):
     """Schema for creating a ProjetMinier."""
-    commune_ids: List[int] = Field(default_factory=list)
+    communes: List[ProjetCommuneNested] = Field(default_factory=list)
 
 
 class ProjetMinierUpdate(BaseSchema):
@@ -109,12 +117,12 @@ class ProjetMinierList(BaseSchema):
 
 class ProjetMinierWithSociete(ProjetMinierRead):
     """ProjetMinier with société info."""
-    societe: Optional[SocieteMiniereList] = None
+    societe: SocieteMiniereList
 
 
 class ProjetMinierWithCommunes(ProjetMinierRead):
     """ProjetMinier with impacted communes."""
-    societe: Optional[SocieteMiniereList] = None
+    societe: SocieteMiniereList
     communes: List["ProjetCommuneRead"] = []
 
 
@@ -126,7 +134,7 @@ class ProjetCommuneBase(BaseSchema):
     """Base schema for ProjetCommune relation."""
     projet_id: int
     commune_id: int
-    pourcentage_territoire: Optional[Decimal] = Field(None, ge=0, le=100)
+    pourcentage_territoire: Decimal = Field(..., ge=0, le=100)
     date_debut: Optional[date] = None
     date_fin: Optional[date] = None
 
@@ -159,13 +167,14 @@ class RevenuMinierBase(BaseSchema):
     """Base schema for RevenuMinier."""
     commune_id: int
     exercice_id: int
-    projet_id: Optional[int] = None
+    projet_id: int
     type_revenu: TypeRevenuMinier
     montant_prevu: Decimal = Field(default=Decimal("0.00"), ge=0)
     montant_recu: Decimal = Field(default=Decimal("0.00"), ge=0)
     date_reception: Optional[date] = None
     reference_paiement: Optional[str] = Field(None, max_length=100)
-    compte_code: Optional[str] = Field(None, max_length=10)
+    compte_code: str = Field(..., min_length=1, max_length=10)
+    compte_administratif_id: int
     commentaire: Optional[str] = None
 
 
@@ -182,7 +191,8 @@ class RevenuMinierUpdate(BaseSchema):
     montant_recu: Optional[Decimal] = Field(None, ge=0)
     date_reception: Optional[date] = None
     reference_paiement: Optional[str] = Field(None, max_length=100)
-    compte_code: Optional[str] = Field(None, max_length=10)
+    compte_code: Optional[str] = Field(None, min_length=1, max_length=10)
+    compte_administratif_id: Optional[int] = None
     commentaire: Optional[str] = None
 
 
@@ -208,6 +218,8 @@ class RevenuMinierWithDetails(RevenuMinierRead):
     commune_nom: Optional[str] = None
     exercice_annee: Optional[int] = None
     projet_nom: Optional[str] = None
+    compte_intitule: Optional[str] = None
+    compte_administratif_label: Optional[str] = None
 
 
 # =====================
