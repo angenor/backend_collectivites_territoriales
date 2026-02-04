@@ -14,6 +14,7 @@ from app.models.comptabilite import DonneesRecettes, DonneesDepenses
 from app.models.enums import TypeCommune
 from sqlalchemy import func
 
+from app.schemas.base import PaginatedResponse
 from app.schemas.geographie import (
     CommuneDetail,
     CommuneList,
@@ -212,11 +213,15 @@ async def get_region(
 
 @router.get(
     "/communes",
-    response_model=list[CommuneWithStats],
+    response_model=PaginatedResponse[CommuneWithStats],
     summary="Liste des communes",
-    description="Retourne la liste des communes avec statistiques, filtres optionnels par région ou type."
+    description="Retourne la liste paginée des communes avec statistiques, filtres optionnels."
 )
 async def list_communes(
+    province_id: Optional[int] = Query(
+        None,
+        description="Filtrer par province"
+    ),
     region_id: Optional[int] = Query(
         None,
         description="Filtrer par région"
@@ -231,31 +236,35 @@ async def list_communes(
         max_length=100,
         description="Recherche par nom (min 2 caractères)"
     ),
+    page: int = Query(
+        1,
+        ge=1,
+        description="Numéro de page"
+    ),
     limit: int = Query(
-        100,
+        20,
         ge=1,
         le=500,
-        description="Nombre maximum de résultats"
-    ),
-    offset: int = Query(
-        0,
-        ge=0,
-        description="Nombre de résultats à ignorer"
+        description="Nombre de résultats par page"
     ),
     db: Session = Depends(get_db),
 ):
     """
-    Get list of communes with optional filters and stats.
+    Get paginated list of communes with optional filters and stats.
 
+    - **province_id**: Filter by province
     - **region_id**: Filter by region
     - **type_commune**: Filter by commune type (urbaine, rurale)
     - **search**: Search by name (case-insensitive)
-    - **limit**: Max results (default 100, max 500)
-    - **offset**: Skip results for pagination
+    - **page**: Page number (default 1)
+    - **limit**: Results per page (default 20, max 500)
     """
-    query = db.query(Commune).options(
-        joinedload(Commune.region).joinedload(Region.province)
-    )
+    query = db.query(Commune)
+
+    if province_id:
+        query = query.filter(
+            Commune.region.has(Region.province_id == province_id)
+        )
 
     if region_id:
         query = query.filter(Commune.region_id == region_id)
@@ -266,11 +275,16 @@ async def list_communes(
     if search:
         query = query.filter(Commune.nom.ilike(f"%{search}%"))
 
-    communes = query.order_by(Commune.nom).offset(offset).limit(limit).all()
+    total = query.count()
+
+    offset = (page - 1) * limit
+    communes = query.options(
+        joinedload(Commune.region).joinedload(Region.province)
+    ).order_by(Commune.nom).offset(offset).limit(limit).all()
 
     ca_counts = _get_commune_ca_counts(db)
 
-    return [
+    items = [
         CommuneWithStats(
             id=c.id,
             code=c.code,
@@ -283,6 +297,13 @@ async def list_communes(
         )
         for c in communes
     ]
+
+    return PaginatedResponse.create(
+        items=items,
+        total=total,
+        page=page,
+        page_size=limit
+    )
 
 
 @router.get(
